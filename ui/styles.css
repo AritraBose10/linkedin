@@ -1,0 +1,330 @@
+/**
+ * LinkedIn Comment Copilot - Styles
+ * Scoped CSS for floating UI components
+ */
+
+/* ============================================================================
+   Panel Styles
+   ============================================================================ */
+
+#lcc-panel {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 16px;
+  box-shadow: 
+    0 4px 20px rgba(0, 0, 0, 0.08),
+    0 8px 40px rgba(0, 0, 0, 0.04),
+    0 0 0 1px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  animation: lcc-slide-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes lcc-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* ============================================================================
+   Panel Header
+   ============================================================================ */
+
+.lcc-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
+  color: white;
+}
+
+.lcc-title {
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.2px;
+}
+
+.lcc-close {
+  background: rgba(255, 255, 255, 0.2);
+  border: none;
+  color: white;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.lcc-close:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+/* ============================================================================
+   Panel Body
+   ============================================================================ */
+
+.lcc-panel-body {
+  padding: 18px;
+}
+
+/* Status / Loading State */
+.lcc-status {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.lcc-progress {
+  width: 100%;
+  height: 4px;
+  background: #e9ecef;
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.lcc-progress::after {
+  content: '';
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, #0077b5, #00a0dc, #0077b5);
+  background-size: 200% 100%;
+  animation: lcc-progress 1.5s ease-in-out infinite;
+  border-radius: 2px;
+}
+
+@keyframes lcc-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+.lcc-status-text {
+  color: #6c757d;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Result State */
+.lcc-result {
+  animation: lcc-fade-in 0.3s ease;
+}
+
+@keyframes lcc-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.lcc-comment-preview {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 16px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #212529;
+  margin-bottom: 14px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.lcc-comment-preview:focus {
+  outline: none;
+  border-color: #0077b5;
+  background: #fff;
+}
+
+/* Action Buttons */
+.lcc-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.lcc-action {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lcc-action:hover {
+  background: #f8f9fa;
+  border-color: #0077b5;
+  color: #0077b5;
+  transform: translateY(-1px);
+}
+
+.lcc-action svg {
+  flex-shrink: 0;
+}
+
+.lcc-copy:hover {
+  background: #e8f4f8;
+}
+
+.lcc-regen:hover {
+  background: #fff3e6;
+  border-color: #fd7e14;
+  color: #fd7e14;
+}
+
+.lcc-edit:hover {
+  background: #e8f5e9;
+  border-color: #28a745;
+  color: #28a745;
+}
+
+/* Error State */
+.lcc-error {
+  text-align: center;
+  padding: 16px;
+  background: #fff5f5;
+  border-radius: 12px;
+  border: 1px solid #fee;
+}
+
+.lcc-error-text {
+  display: block;
+  color: #dc3545;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.lcc-retry {
+  padding: 8px 20px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.lcc-retry:hover {
+  background: #c82333;
+  transform: translateY(-1px);
+}
+
+/* ============================================================================
+   Panel Footer
+   ============================================================================ */
+
+.lcc-footer {
+  padding: 10px 18px;
+  background: #f8f9fa;
+  border-top: 1px solid #e9ecef;
+}
+
+.lcc-rate-limit {
+  font-size: 11px;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lcc-rate-limit::before {
+  content: '⚡';
+}
+
+/* ============================================================================
+   Dark Mode Support
+   ============================================================================ */
+
+@media (prefers-color-scheme: dark) {
+  #lcc-panel {
+    background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
+    box-shadow: 
+      0 4px 20px rgba(0, 0, 0, 0.3),
+      0 8px 40px rgba(0, 0, 0, 0.2),
+      0 0 0 1px rgba(255, 255, 255, 0.05);
+  }
+
+  .lcc-comment-preview {
+    background: rgba(255, 255, 255, 0.05);
+    color: #e9ecef;
+  }
+
+  .lcc-action {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    color: #adb5bd;
+  }
+
+  .lcc-action:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .lcc-footer {
+    background: rgba(0, 0, 0, 0.2);
+    border-color: rgba(255, 255, 255, 0.05);
+  }
+
+  .lcc-status-text,
+  .lcc-rate-limit {
+    color: #adb5bd;
+  }
+
+  .lcc-progress {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* ============================================================================
+   Scrollbar Styling
+   ============================================================================ */
+
+.lcc-comment-preview::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lcc-comment-preview::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lcc-comment-preview::-webkit-scrollbar-thumb {
+  background: #ced4da;
+  border-radius: 3px;
+}
+
+.lcc-comment-preview::-webkit-scrollbar-thumb:hover {
+  background: #adb5bd;
+}
+
+/* ============================================================================
+   Responsive Adjustments
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  #lcc-panel {
+    width: calc(100vw - 40px) !important;
+    right: 20px !important;
+    left: 20px !important;
+  }
+}

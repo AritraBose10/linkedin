@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Comment Copilot - Options</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      color: #0077b5;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .header p {
+      color: #6c757d;
+      font-size: 14px;
+    }
+
+    .card {
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    .card h2 {
+      font-size: 16px;
+      color: #212529;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e9ecef;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group:last-child {
+      margin-bottom: 0;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #495057;
+      margin-bottom: 8px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 14px;
+      border: 1px solid #dee2e6;
+      border-radius: 10px;
+      background: #f8f9fa;
+      transition: all 0.2s ease;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: #0077b5;
+      background: white;
+      box-shadow: 0 0 0 3px rgba(0, 119, 181, 0.1);
+    }
+
+    input[type="password"] {
+      font-family: monospace;
+      letter-spacing: 1px;
+    }
+
+    .input-hint {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 6px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 119, 181, 0.3);
+    }
+
+    .btn-secondary {
+      background: #f8f9fa;
+      color: #495057;
+      border: 1px solid #dee2e6;
+    }
+
+    .btn-secondary:hover {
+      background: #e9ecef;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      padding: 14px 24px;
+      background: #28a745;
+      color: white;
+      border-radius: 10px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .toast.error {
+      background: #dc3545;
+    }
+
+    .range-group {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .range-group input[type="range"] {
+      flex: 1;
+      padding: 0;
+      height: 6px;
+      -webkit-appearance: none;
+      background: #dee2e6;
+      border-radius: 3px;
+      border: none;
+    }
+
+    .range-group input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      background: #0077b5;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .range-value {
+      min-width: 40px;
+      text-align: center;
+      font-weight: 600;
+      color: #0077b5;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .stat {
+      text-align: center;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 12px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: #0077b5;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>💬 LinkedIn Comment Copilot</h1>
+      <p>Configure your AI-powered comment assistant</p>
+    </div>
+
+    <div class="card">
+      <h2>🔑 API Configuration</h2>
+
+      <div class="form-group">
+        <label for="provider">LLM Provider</label>
+        <select id="provider">
+          <option value="openai">OpenAI (GPT-4o)</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="anthropic">Anthropic Claude</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="apiKey">API Key</label>
+        <input type="password" id="apiKey" placeholder="Enter your API key">
+        <p class="input-hint">Your key is stored locally and never sent to any server except your chosen LLM provider.
+        </p>
+      </div>
+
+      <div class="form-group">
+        <label for="model">Model</label>
+        <select id="model">
+          <!-- Populated dynamically based on provider -->
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>⚙️ Generation Settings</h2>
+
+      <div class="form-group">
+        <label>Temperature (Creativity)</label>
+        <div class="range-group">
+          <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.8">
+          <span class="range-value" id="tempValue">0.8</span>
+        </div>
+        <p class="input-hint">Lower = more focused, Higher = more creative</p>
+      </div>
+
+      <div class="form-group">
+        <label for="maxTokens">Max Words</label>
+        <select id="maxTokens">
+          <option value="50">10 words</option>
+          <option value="100" selected>20 words</option>
+          <option value="150">30 words</option>
+          <option value="200">40 words</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>📊 Usage Statistics</h2>
+      <div class="stats">
+        <div class="stat">
+          <div class="stat-value" id="totalGenerated">0</div>
+          <div class="stat-label">Comments Generated</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="todayRemaining">10</div>
+          <div class="stat-label">Remaining Today</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="avgRating">-</div>
+          <div class="stat-label">Avg Quality</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="saveBtn">
+        <span>💾</span> Save Settings
+      </button>
+      <button class="btn btn-secondary" id="resetBtn">
+        Reset to Defaults
+      </button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="options.js"></script>
+</body>
+
+</html>
