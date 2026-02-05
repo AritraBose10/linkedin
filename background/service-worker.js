@@ -50,14 +50,14 @@ async function checkRateLimit() {
   const data = await getRateLimitData();
   const now = Date.now();
   const windowStart = now - RATE_LIMIT.windowMs;
-  
+
   // Filter timestamps within the window
   const recentTimestamps = data.timestamps.filter(ts => ts > windowStart);
-  
+
   return {
     allowed: recentTimestamps.length < RATE_LIMIT.maxCommentsPerHour,
     remaining: RATE_LIMIT.maxCommentsPerHour - recentTimestamps.length,
-    resetIn: recentTimestamps.length > 0 
+    resetIn: recentTimestamps.length > 0
       ? Math.ceil((recentTimestamps[0] + RATE_LIMIT.windowMs - now) / 1000 / 60)
       : 0
   };
@@ -67,11 +67,11 @@ async function recordCommentGeneration() {
   const data = await getRateLimitData();
   const now = Date.now();
   const windowStart = now - RATE_LIMIT.windowMs;
-  
+
   // Clean old timestamps and add new one
   data.timestamps = data.timestamps.filter(ts => ts > windowStart);
   data.timestamps.push(now);
-  
+
   await saveRateLimitData(data);
 }
 
@@ -81,13 +81,13 @@ async function recordCommentGeneration() {
 
 async function callLLM(messages, settings) {
   const { llmProvider, apiKey, model, maxTokens, temperature } = settings;
-  
+
   if (!apiKey) {
     throw new Error('API key not configured. Please set it in extension options.');
   }
-  
+
   let endpoint, headers, body;
-  
+
   switch (llmProvider) {
     case 'openai':
       endpoint = 'https://api.openai.com/v1/chat/completions';
@@ -102,7 +102,7 @@ async function callLLM(messages, settings) {
         temperature
       };
       break;
-      
+
     case 'gemini':
       endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
       headers = { 'Content-Type': 'application/json' };
@@ -117,7 +117,7 @@ async function callLLM(messages, settings) {
         }
       };
       break;
-      
+
     case 'anthropic':
       endpoint = 'https://api.anthropic.com/v1/messages';
       headers = {
@@ -129,27 +129,42 @@ async function callLLM(messages, settings) {
         model,
         max_tokens: maxTokens,
         messages: messages.filter(m => m.role !== 'system'),
-        system: messages.find(m => m.role === 'system')?.content || ''
+        system: messages.find(m => m.role === 'system')?.content || '',
+        temperature
       };
       break;
-      
+
+    case 'groq':
+      endpoint = 'https://api.groq.com/openai/v1/chat/completions';
+      headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      };
+      body = {
+        model,
+        messages,
+        max_tokens: maxTokens,
+        temperature
+      };
+      break;
+
     default:
       throw new Error(`Unsupported LLM provider: ${llmProvider}`);
   }
-  
+
   const response = await fetch(endpoint, {
     method: 'POST',
     headers,
     body: JSON.stringify(body)
   });
-  
+
   if (!response.ok) {
     const error = await response.text();
     throw new Error(`LLM API error: ${response.status} - ${error}`);
   }
-  
+
   const data = await response.json();
-  
+
   // Extract response based on provider
   switch (llmProvider) {
     case 'openai':
@@ -158,6 +173,8 @@ async function callLLM(messages, settings) {
       return data.candidates[0].content.parts[0].text;
     case 'anthropic':
       return data.content[0].text;
+    case 'groq':
+      return data.choices[0].message.content;
     default:
       throw new Error('Unknown provider response format');
   }
@@ -186,7 +203,18 @@ Respond ONLY with valid JSON, no markdown.`
   };
 }
 
-function buildGenerationPrompt(analysis, userStyle, constraints) {
+function buildGenerationPrompt(analysis, userStyle, constraints, vibe) {
+  const wordLimit = constraints?.wordLimit || 20;
+
+  const vibeInstructions = vibe
+    ? `\nGOAL: ${vibe.label} - ${vibe.prompt}\n`
+    : '';
+
+  // If vibe is set, override riskiness or tone constraints to match user intent
+  const constraintInstructions = vibe
+    ? `IGNORE standard tone. ADOPT the goal above.`
+    : '';
+
   return {
     role: 'system',
     content: `You are generating an authentic LinkedIn comment that sounds like the user wrote it.
@@ -194,34 +222,25 @@ function buildGenerationPrompt(analysis, userStyle, constraints) {
 CONTEXT:
 ${JSON.stringify(analysis, null, 2)}
 
-USER STYLE PROFILE:
-- Typical length: ${userStyle?.avgLength || 'medium'} (${userStyle?.avgWords || '20-40'} words)
-- Emoji usage: ${userStyle?.emojiRate || 'occasional'}
-- Tone: ${userStyle?.preferredTone || 'professional yet warm'}
-- Common phrases: ${userStyle?.phrases?.join(', ') || 'none learned yet'}
+USER IDENTITY (CLONE THESE TRAITS):
+- Length Preference: ${userStyle?.avgLength || 'medium'}
+- Emoji Frequency: ${userStyle?.emojiFrequency || 'rare'}
+- Punctuation Style: ${userStyle?.punctuation || 'standard'} (If "relaxed", avoid periods at end of lines. If "excited", use exclamation marks!)
+- Casing: ${userStyle?.casing || 'standard'} (If "lowercase", DO NOT capitalize sentences)
+- Directness: ${userStyle?.structure === 'list_heavy' ? 'Prefers bullet points' : 'Prefers sentences'}
+- Common Phrases (Use casually if fits): ${userStyle?.commonPhrases?.join(', ') || 'N/A'}
 
 HARD CONSTRAINTS:
-1. NEVER use these generic phrases:
-   - "Great post"
-   - "Thanks for sharing"
-   - "Love this"
-   - "So true"
-   - "Couldn't agree more"
-   
-2. NEVER start with:
-   - "Wow"
-   - "Amazing"
-   - An emoji
-   
-3. MUST:
-   - Add genuine insight or perspective
-   - Reference specific content from the post
-   - Sound human, not AI-generated
-   - Match user's typical style
+1. NEVER use generic bot comments ("Great post", "Thanks for sharing", "Love this", "So true").
+2. NEVER start with "Wow" or "Amazing".
+3. MATCH THE CASING AND PUNCTUATION STYLE EXACTLY.
+4. Length: MAX ${wordLimit} WORDS
 
-4. Length: ${constraints?.targetLength || '2-4 sentences'}
+Generate ONE comment. Return ONLY the comment text. Keep it under ${wordLimit} words. No quotes.
 
-Generate ONE comment. Return ONLY the comment text, no quotes or explanation.`
+${constraintInstructions}
+
+${vibeInstructions}`
   };
 }
 
@@ -229,9 +248,9 @@ Generate ONE comment. Return ONLY the comment text, no quotes or explanation.`
 // Main Comment Generation
 // ============================================================================
 
-async function generateComment(postData) {
+async function generateComment(postContent, authorName, vibe) {
   const settings = await getSettings();
-  
+
   // Check rate limit
   const rateLimit = await checkRateLimit();
   if (!rateLimit.allowed) {
@@ -240,41 +259,54 @@ async function generateComment(postData) {
       error: `Rate limit reached. ${rateLimit.remaining} comments remaining. Resets in ${rateLimit.resetIn} minutes.`
     };
   }
-  
+
   try {
     // Stage 1: Analyze post
-    const analysisPrompt = buildAnalysisPrompt(postData.content, postData.author);
+    const analysisPrompt = buildAnalysisPrompt(postContent, { name: authorName, headline: 'LinkedIn Member' });
     const analysisResponse = await callLLM([
       analysisPrompt,
       { role: 'user', content: 'Analyze this post.' }
     ], settings);
-    
+
     let analysis;
     try {
       analysis = JSON.parse(analysisResponse);
     } catch {
-      analysis = { focalPoint: postData.content.slice(0, 100), recommendedTone: 'professional' };
+      analysis = { focalPoint: postContent.slice(0, 100), recommendedTone: 'professional' };
     }
-    
+
     // Stage 2: Generate comment
     const userStyle = await chrome.storage.local.get('userStyle');
-    const generationPrompt = buildGenerationPrompt(analysis, userStyle.userStyle, {});
-    
+
+    // Derive word limit from maxTokens (approx 5 tokens per word in this specific options mapping)
+    // Options: 50 -> 10 words, 100 -> 20 words, 150 -> 30 words, 200 -> 40 words
+    // If settings.maxTokens is custom or large, default to 20 to be safe.
+    let wordLimit = 20;
+    if (settings.maxTokens && settings.maxTokens <= 200) {
+      wordLimit = Math.floor(settings.maxTokens / 5);
+    }
+
+    const generationPrompt = buildGenerationPrompt(analysis, userStyle.userStyle, { wordLimit }, vibe);
+
+    const promptContent = vibe
+      ? `Generate a comment for this post about: ${analysis.focalPoint} with VIBE: ${vibe.label}`
+      : `Generate a comment for this post about: ${analysis.focalPoint}`;
+
     const comment = await callLLM([
       generationPrompt,
-      { role: 'user', content: `Generate a comment for this post about: ${analysis.focalPoint}` }
+      { role: 'user', content: promptContent }
     ], settings);
-    
+
     // Record for rate limiting
     await recordCommentGeneration();
-    
+
     return {
       success: true,
       comment: comment.trim(),
       analysis,
       rateLimit: await checkRateLimit()
     };
-    
+
   } catch (error) {
     return {
       success: false,
@@ -289,24 +321,24 @@ async function generateComment(postData) {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GENERATE_COMMENT') {
-    generateComment(message.postData)
+    generateComment(message.postContent, message.authorName, message.vibe)
       .then(sendResponse)
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true; // Keep channel open for async response
   }
-  
+
   if (message.type === 'GET_SETTINGS') {
     getSettings().then(sendResponse);
     return true;
   }
-  
+
   if (message.type === 'SAVE_SETTINGS') {
     saveSettings(message.settings)
       .then(() => sendResponse({ success: true }))
       .catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
-  
+
   if (message.type === 'CHECK_RATE_LIMIT') {
     checkRateLimit().then(sendResponse);
     return true;

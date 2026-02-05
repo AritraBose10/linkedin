@@ -20,6 +20,7 @@
         "*://*.linkedin.com/*"
       ],
       "js": [
+        "core/sentiment.js",
         "content/content.js"
       ],
       "css": [

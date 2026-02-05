@@ -21,6 +21,12 @@ const MODELS = {
         { value: 'claude-3-5-sonnet-20241022', label: 'Claude 3.5 Sonnet (Recommended)' },
         { value: 'claude-3-5-haiku-20241022', label: 'Claude 3.5 Haiku (Faster)' },
         { value: 'claude-3-opus-20240229', label: 'Claude 3 Opus' }
+    ],
+    groq: [
+        { value: 'llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Recommended)' },
+        { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fastest)' },
+        { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
+        { value: 'gemma2-9b-it', label: 'Gemma 2 9B' }
     ]
 };
 
@@ -132,6 +138,83 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
+// Style Engine Integration
+let styleEngine;
+try {
+    styleEngine = new StyleEngine();
+} catch (e) {
+    console.error('StyleEngine not loaded', e);
+}
+
+// Elements for Style Training
+Object.assign(elements, {
+    trainBtn: document.getElementById('trainBtn'),
+    trainingData: document.getElementById('trainingData'),
+    styleStats: document.getElementById('styleStats'),
+    styleLength: document.getElementById('styleLength'),
+    styleEmoji: document.getElementById('styleEmoji'),
+    styleTone: document.getElementById('styleTone'),
+    styleCasing: document.getElementById('styleCasing')
+});
+
+async function analyzeAndSaveStyle() {
+    const text = elements.trainingData.value;
+    if (text.length < 50) {
+        showToast('Please provide at least 50 characters of text', 'error');
+        return;
+    }
+
+    if (!styleEngine) {
+        showToast('Style Engine not ready', 'error');
+        return;
+    }
+
+    elements.trainBtn.innerHTML = '<span>⏳</span> Analyzing...';
+
+    // Simulate thinking delay feels better
+    setTimeout(async () => {
+        const profile = styleEngine.analyze(text);
+
+        // Save to storage
+        await chrome.storage.local.set({ userStyle: profile });
+
+        // Update UI
+        displayStyleStats(profile);
+        elements.trainBtn.innerHTML = '<span>✅</span> Identity Saved';
+        showToast('Style profile updated!', 'success');
+
+        setTimeout(() => {
+            elements.trainBtn.innerHTML = '<span>🧬</span> Analyze & Save Identity';
+        }, 2000);
+    }, 800);
+}
+
+function displayStyleStats(profile) {
+    if (!profile) return;
+
+    elements.styleStats.style.display = 'block';
+
+    // Format for display
+    elements.styleLength.textContent = profile.avgLength === 'short' ? 'Short & Punchy' :
+        profile.avgLength === 'long' ? 'Detailed' : 'Balanced';
+
+    elements.styleEmoji.textContent = profile.emojiFrequency === 'never' ? 'Minimal/None' :
+        profile.emojiFrequency === 'heavy' ? 'Expressive' : 'Balanced';
+
+    elements.styleTone.textContent = profile.punctuation === 'excited' ? 'High Energy' :
+        profile.punctuation === 'relaxed' ? 'Casual' : 'Professional';
+
+    elements.styleCasing.textContent = profile.casing === 'lowercase' ? 'modern lowercase' : 'Standard Case';
+}
+
+// Load existing style
+async function loadStyle() {
+    const data = await chrome.storage.local.get('userStyle');
+    if (data.userStyle) {
+        displayStyleStats(data.userStyle);
+    }
+}
+
 // Event listeners
 elements.provider.addEventListener('change', () => {
     updateModels();
@@ -143,6 +226,10 @@ elements.temperature.addEventListener('input', () => {
 
 elements.saveBtn.addEventListener('click', saveSettings);
 elements.resetBtn.addEventListener('click', resetSettings);
+elements.trainBtn?.addEventListener('click', analyzeAndSaveStyle);
 
 // Initialize
-document.addEventListener('DOMContentLoaded', loadSettings);
+document.addEventListener('DOMContentLoaded', () => {
+    loadSettings();
+    loadStyle();
+});

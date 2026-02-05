@@ -9,7 +9,7 @@
 
 const CONFIG = {
     // Dwell time thresholds
-    minDwellTime: 3000, // 3 seconds minimum hover
+    minDwellTime: 2000, // 2 seconds minimum hover
     buttonFadeDelay: 2000, // 2 seconds before showing button
 
     // Viewport detection
@@ -46,7 +46,8 @@ const state = {
     buttonVisible: false,
     panelVisible: false,
     currentButton: null,
-    currentPanel: null
+    currentPanel: null,
+    persistenceTimeout: null
 };
 
 // ============================================================================
@@ -110,77 +111,151 @@ function extractPostData(postElement) {
 // UI Components - Floating Button
 // ============================================================================
 
+// Initialize Vibe Engine
+let vibeEngine;
+try {
+    vibeEngine = new VibeEngine();
+} catch (e) {
+    console.error('VibeEngine failed to load', e);
+}
+
 function createFloatingButton() {
-    const button = document.createElement('button');
-    button.id = 'lcc-suggest-btn';
-    button.innerHTML = `
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-      <path d="M12 7v6M9 10h6"></path>
-    </svg>
-    <span>Suggest</span>
-  `;
-    button.style.cssText = `
-    position: absolute;
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
-    color: white;
-    border: none;
-    border-radius: 20px;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    opacity: 0;
-    transform: translateY(5px);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 8px rgba(0, 119, 181, 0.3);
-  `;
+    const container = document.createElement('div');
+    container.className = 'lcc-button-container';
+    container.style.cssText = `
+        position: absolute;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: all 0.2s ease;
+        opacity: 0; /* Start hidden */
+        transform: translateY(5px); /* Start slightly offset */
+        z-index: 10000;
+    `;
 
-    button.addEventListener('mouseenter', () => {
-        button.style.transform = 'translateY(0) scale(1.05)';
-        button.style.boxShadow = '0 4px 12px rgba(0, 119, 181, 0.4)';
+    const mainBtn = document.createElement('button');
+    mainBtn.className = 'lcc-suggest-btn';
+    mainBtn.innerHTML = `
+        <span style="font-size: 16px; margin-right: 6px;">✨</span>
+        <span>Suggest</span>
+    `;
+    mainBtn.style.cssText = `
+        border: 1px solid #0a66c2;
+        background: transparent;
+        color: #0a66c2;
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        font-size: 13px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    `;
+
+    // Hover effect for main button
+    mainBtn.onmouseover = () => {
+        mainBtn.style.background = '#eef3f8';
+        mainBtn.style.boxShadow = 'inset 0 0 0 1px #0a66c2';
+    };
+    mainBtn.onmouseout = () => {
+        mainBtn.style.background = 'transparent';
+        mainBtn.style.boxShadow = 'none';
+    };
+
+    // Quick Vibe Container (Hidden by default)
+    const vibeContainer = document.createElement('div');
+    vibeContainer.className = 'lcc-vibe-container';
+    vibeContainer.style.cssText = `
+        display: flex;
+        gap: 4px;
+        opacity: 0;
+        transform: translateX(-10px);
+        transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        pointer-events: none;
+    `;
+
+    container.appendChild(mainBtn);
+    container.appendChild(vibeContainer);
+
+    // Hover interactions
+    container.addEventListener('mouseenter', async () => {
+        if (!state.currentPost || vibeContainer.children.length > 0) return;
+
+        // Lazy analyze post
+        const postData = extractPostData(state.currentPost);
+        const vibes = vibeEngine ? vibeEngine.analyze(postData.content) : [];
+
+        // Render Vibe Buttons
+        vibeContainer.innerHTML = '';
+        vibes.slice(0, 3).forEach(vibe => {
+            const btn = document.createElement('button');
+            btn.className = 'lcc-vibe-btn';
+            btn.innerHTML = `<span>${vibe.icon}</span>`;
+            btn.title = vibe.label; // Tooltip
+            btn.style.cssText = `
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                border: none;
+                background: white;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 16px;
+                transition: transform 0.1s;
+            `;
+
+            btn.onmouseover = () => btn.style.transform = 'scale(1.2)';
+            btn.onmouseout = () => btn.style.transform = 'scale(1)';
+
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                showSuggestionPanel(state.currentPost, vibe);
+            };
+
+            vibeContainer.appendChild(btn);
+        });
+
+        // Show container
+        vibeContainer.style.opacity = '1';
+        vibeContainer.style.transform = 'translateX(0)';
+        vibeContainer.style.pointerEvents = 'auto';
     });
 
-    button.addEventListener('mouseleave', () => {
-        button.style.transform = 'translateY(0) scale(1)';
-        button.style.boxShadow = '0 2px 8px rgba(0, 119, 181, 0.3)';
-    });
-
-    return button;
+    return container;
 }
 
 function showButton(postElement) {
     if (state.currentButton) {
         state.currentButton.remove();
     }
+    state.currentPost = postElement; // Store ref for extraction
 
-    const button = createFloatingButton();
+    const buttonContainer = createFloatingButton();
     const rect = postElement.getBoundingClientRect();
 
     // Add slight randomization to position (anti-pattern detection)
     const randomX = Math.floor(Math.random() * 20) - 10;
     const randomY = Math.floor(Math.random() * 10) - 5;
 
-    button.style.top = `${rect.top + window.scrollY + CONFIG.buttonOffset.y + randomY}px`;
-    button.style.right = `${window.innerWidth - rect.right + CONFIG.buttonOffset.x + randomX}px`;
+    buttonContainer.style.top = `${rect.top + window.scrollY + CONFIG.buttonOffset.y + randomY}px`;
+    buttonContainer.style.right = `${window.innerWidth - rect.right + CONFIG.buttonOffset.x + randomX}px`;
 
-    document.body.appendChild(button);
-    state.currentButton = button;
+    document.body.appendChild(buttonContainer);
+    state.currentButton = buttonContainer;
 
     // Animate in after delay (simulates reading time)
     setTimeout(() => {
-        button.style.opacity = '1';
-        button.style.transform = 'translateY(0)';
+        buttonContainer.style.opacity = '1';
+        buttonContainer.style.transform = 'translateY(0)';
         state.buttonVisible = true;
     }, CONFIG.buttonFadeDelay);
 
-    // Click handler
-    button.addEventListener('click', (e) => {
+    // Click handler for main button
+    buttonContainer.querySelector('.lcc-suggest-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         showSuggestionPanel(postElement);
     });
@@ -239,6 +314,13 @@ function createSuggestionPanel() {
             </svg>
             Edit
           </button>
+          <button class="lcc-action lcc-insert" title="Insert into comment box" style="background: linear-gradient(135deg, #057642 0%, #046c3c 100%); color: white; border: none;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Insert
+          </button>
         </div>
       </div>
       <div class="lcc-error" style="display: none;">
@@ -254,7 +336,7 @@ function createSuggestionPanel() {
     return panel;
 }
 
-async function showSuggestionPanel(postElement) {
+async function showSuggestionPanel(postElement, vibe = null) {
     hideButton();
 
     if (state.currentPanel) {
@@ -279,12 +361,13 @@ async function showSuggestionPanel(postElement) {
     // Setup event listeners
     panel.querySelector('.lcc-close').addEventListener('click', hidePanel);
     panel.querySelector('.lcc-copy').addEventListener('click', handleCopy);
-    panel.querySelector('.lcc-regen').addEventListener('click', () => handleRegenerate(postElement));
+    panel.querySelector('.lcc-regen').addEventListener('click', () => handleRegenerate(postElement, vibe));
     panel.querySelector('.lcc-edit').addEventListener('click', handleEdit);
-    panel.querySelector('.lcc-retry')?.addEventListener('click', () => handleRegenerate(postElement));
+    panel.querySelector('.lcc-insert').addEventListener('click', () => handleInsert(postElement));
+    panel.querySelector('.lcc-retry')?.addEventListener('click', () => handleRegenerate(postElement, vibe));
 
     // Generate comment
-    await generateAndDisplayComment(postElement);
+    await generateAndDisplayComment(postElement, vibe);
 }
 
 function hidePanel() {
@@ -303,7 +386,7 @@ function hidePanel() {
 // Comment Generation & Display
 // ============================================================================
 
-async function generateAndDisplayComment(postElement) {
+async function generateAndDisplayComment(postElement, vibe = null) {
     const panel = state.currentPanel;
     if (!panel) return;
 
@@ -333,13 +416,18 @@ async function generateAndDisplayComment(postElement) {
         // Send to background for LLM generation
         const response = await chrome.runtime.sendMessage({
             type: 'GENERATE_COMMENT',
-            postData
+            postContent: postData.content,
+            authorName: postData.authorName,
+            vibe: vibe // Pass vibe context
         });
 
         if (response.success) {
             statusEl.style.display = 'none';
             resultEl.style.display = 'block';
-            previewEl.textContent = response.comment;
+
+            // Humanizer: Typewriter simulation
+            previewEl.textContent = '';
+            await typewriterEffect(previewEl, response.comment);
 
             // Update rate limit display
             if (response.rateLimit) {
@@ -376,8 +464,8 @@ function handleCopy() {
     }
 }
 
-async function handleRegenerate(postElement) {
-    await generateAndDisplayComment(postElement);
+async function handleRegenerate(postElement, vibe = null) {
+    await generateAndDisplayComment(postElement, vibe);
 }
 
 function handleEdit() {
@@ -388,6 +476,126 @@ function handleEdit() {
         previewEl.style.border = '1px solid #0077b5';
         previewEl.style.borderRadius = '8px';
         previewEl.style.padding = '8px';
+    }
+}
+
+async function handleInsert(postElement) {
+    const previewEl = state.currentPanel?.querySelector('.lcc-comment-preview');
+    if (!previewEl) return;
+
+    const commentText = previewEl.textContent;
+    const insertBtn = state.currentPanel.querySelector('.lcc-insert');
+
+    // Feedback - Start
+    const originalText = insertBtn.innerHTML;
+    insertBtn.innerHTML = 'Inserting...';
+
+    try {
+        // 1. Find or open comment box
+        // Modern LinkedIn often nests the box deep, or changes class names.
+        // We look for multiple potential container classes.
+        let commentBox = postElement.querySelector('.comments-comment-box__form, .comments-comment-box, form.comments-comment-box__form, .feed-shared-update-v2__comments-box');
+
+        if (!commentBox) {
+            // Try to click the "Comment" button to open the box
+            let commentButton = postElement.querySelector(
+                '.social-actions-button.comment-button, ' +
+                'button[aria-label*="Comment"], ' +
+                'button[aria-label*="comment"], ' +
+                '.feed-shared-social-action-bar__action-btn--comment'
+            );
+
+            // Fallback: Text-based search for button
+            if (!commentButton) {
+                const buttons = Array.from(postElement.querySelectorAll('button'));
+                commentButton = buttons.find(b => b.innerText.trim().toLowerCase() === 'comment');
+            }
+
+            if (commentButton) {
+                commentButton.click();
+
+                // Wait for box to appear (max 3s, poll every 100ms)
+                let attempts = 0;
+                while (attempts < 30) {
+                    await delay(100);
+                    // Broader selector for the box
+                    commentBox = postElement.querySelector(
+                        '.comments-comment-box__form, ' +
+                        '.comments-comment-box, ' +
+                        'form.comments-comment-box__form, ' +
+                        '.feed-shared-update-v2__comments-box, ' +
+                        '.display-flex.flex-column.ml4' // Common wrapper class
+                    );
+                    if (commentBox) break;
+                    attempts++;
+                }
+            }
+        }
+
+        if (!commentBox) {
+            // Fallback: Look for the editor directly within the post (skipping the box check)
+            const directEditor = postElement.querySelector('.ql-editor, .msg-form__contenteditable, div[contenteditable="true"], div[role="textbox"]');
+            if (directEditor) {
+                // If editor exists, we can use its parent as a proxy for the box
+                commentBox = directEditor.parentElement;
+            } else {
+                // Last resort: Check if the post opened in a modal (document level search limited to modal)
+                const modal = document.querySelector('.artdeco-modal');
+                if (modal && modal.contains(postElement)) {
+                    const modalEditor = modal.querySelector('div[contenteditable="true"], div[role="textbox"]');
+                    if (modalEditor) commentBox = modalEditor.parentElement;
+                }
+
+                if (!commentBox) throw new Error('Could not find comment box');
+            }
+        }
+
+        // 2. Find the editor
+        // LinkedIn uses different editors depending on A/B tests (ProseMirror, Quill, etc.)
+        const editor = commentBox.querySelector('.ql-editor, .msg-form__contenteditable, div[contenteditable="true"], div[role="textbox"]');
+        if (!editor) {
+            throw new Error('Could not find text editor');
+        }
+
+        // 3. Insert Text
+        editor.focus();
+
+        // Use execCommand for better compatibility with rich text editors as it triggers native events
+        const success = document.execCommand('insertText', false, commentText);
+        if (!success) {
+            // Fallback
+            editor.innerText = commentText;
+        }
+
+        // 4. Trigger events to enable "Post" button
+        // LinkedIn reacts to 'input' event mainly, but needs bubbling and composition
+        const eventOpts = { bubbles: true, composed: true };
+
+        editor.dispatchEvent(new InputEvent('beforeinput', { ...eventOpts, inputType: 'insertText', data: commentText }));
+        editor.dispatchEvent(new InputEvent('input', { ...eventOpts, inputType: 'insertText', data: commentText }));
+        editor.dispatchEvent(new Event('change', eventOpts));
+
+        // Focusout/in cycle often triggers validation
+        editor.dispatchEvent(new FocusEvent('blur', eventOpts));
+        editor.dispatchEvent(new FocusEvent('focus', eventOpts));
+
+        // Feedback - Success
+        insertBtn.innerHTML = '✓ Ready!';
+        insertBtn.style.background = '#28a745';
+
+        // Hide panel after a moment
+        setTimeout(() => {
+            hidePanel();
+        }, 1500);
+
+    } catch (error) {
+        console.error('Insert failed:', error);
+        insertBtn.innerHTML = '❌ Failed';
+        insertBtn.style.background = '#d9534f';
+        setTimeout(() => {
+            insertBtn.innerHTML = originalText;
+            insertBtn.style.background = '';
+        }, 2000);
     }
 }
 
@@ -413,6 +621,12 @@ function setupPostTracking() {
             state.hoveredPost = post;
             state.hoverStartTime = Date.now();
 
+            // Clear any pending hide logic if we re-enter
+            if (state.persistenceTimeout) {
+                clearTimeout(state.persistenceTimeout);
+                state.persistenceTimeout = null;
+            }
+
             // Show button after dwell time
             setTimeout(() => {
                 if (state.hoveredPost === post &&
@@ -433,8 +647,15 @@ function setupPostTracking() {
             const isMovingToUI = e.relatedTarget?.closest('#lcc-suggest-btn, #lcc-panel');
 
             if (!isMovingToUI && !state.panelVisible) {
-                state.hoveredPost = null;
-                hideButton();
+                // state.hoveredPost = null; // Don't clear immediately
+
+                // Add persistence delay (15 seconds)
+                if (state.persistenceTimeout) clearTimeout(state.persistenceTimeout);
+
+                state.persistenceTimeout = setTimeout(() => {
+                    state.hoveredPost = null;
+                    hideButton();
+                }, 15000); // 15 seconds persistence
             }
         }
     });
@@ -481,4 +702,39 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {
     init();
+}
+
+/**
+ * Simulates human typing with variable speed and pauses
+ */
+function typewriterEffect(element, text) {
+    return new Promise(resolve => {
+        let i = 0;
+
+        function type() {
+            if (i < text.length) {
+                const char = text.charAt(i);
+                element.textContent += char;
+                i++;
+
+                // Base speed: 10-30ms (fast typer)
+                let delay = Math.random() * 20 + 10;
+
+                // "Thinking" pauses
+                if (char === '.' || char === '!' || char === '?') {
+                    delay += Math.random() * 300 + 100; // End of sentence pause
+                } else if (char === ',') {
+                    delay += Math.random() * 100 + 30;  // Comma pause
+                } else if (Math.random() < 0.01) {
+                    delay += Math.random() * 200 + 50; // Random "thought process" break
+                }
+
+                setTimeout(type, delay);
+            } else {
+                resolve();
+            }
+        }
+
+        type();
+    });
 }

@@ -248,6 +248,7 @@
           <option value="openai">OpenAI (GPT-4o)</option>
           <option value="gemini">Google Gemini</option>
           <option value="anthropic">Anthropic Claude</option>
+          <option value="groq">Groq (Free & Fast)</option>
         </select>
       </div>
 
@@ -290,6 +291,33 @@
     </div>
 
     <div class="card">
+      <h2>🧬 Style Identity (Copy-Cat Protocol)</h2>
+      <p style="margin-bottom: 16px; color: #666; font-size: 13px;">Paste 5-10 of your actual LinkedIn comments below.
+        The AI will analyze your sentence length, emoji frequency, and punctuation to mimic you.</p>
+
+      <div class="form-group">
+        <textarea id="trainingData" rows="6"
+          placeholder="Example:\nGreat insights here! I love how you framed the problem.\n\nThanks for sharing this perspective.\n\nInteresting take, but have you considered X?"></textarea>
+      </div>
+
+      <div id="styleStats"
+        style="display: none; margin: 16px 0; padding: 16px; background: #e8f4f9; border-radius: 8px; border: 1px solid #cce5f0;">
+        <h3 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: #0077b5;">Detected DNA</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
+          <div>📝 Length: <strong id="styleLength">-</strong></div>
+          <div>😊 Emojis: <strong id="styleEmoji">-</strong></div>
+          <div>🎭 Tone: <strong id="styleTone">-</strong></div>
+          <div>🔤 Casing: <strong id="styleCasing">-</strong></div>
+        </div>
+      </div>
+
+      <button id="trainBtn" class="btn btn-secondary"
+        style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+        <span>🧬</span> Analyze & Save Identity
+      </button>
+    </div>
+
+    <div class="card">
       <h2>📊 Usage Statistics</h2>
       <div class="stats">
         <div class="stat">
@@ -319,6 +347,7 @@
 
   <div class="toast" id="toast"></div>
 
+  <script src="../core/style-engine.js"></script>
   <script src="options.js"></script>
 </body>
 
