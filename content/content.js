@@ -422,7 +422,16 @@ async function generateAndDisplayComment(postElement, vibe = null) {
     await delay(readTime * 0.3);
     statusText.textContent = 'Generating comment...';
 
+    // 1. Orphan/Context Check
+    if (!chrome.runtime || !chrome.runtime.sendMessage) {
+        statusEl.style.display = 'none';
+        errorEl.style.display = 'block';
+        panel.querySelector('.lcc-error-text').textContent = 'Extension updated. Please refresh the page.';
+        return;
+    }
+
     try {
+<<<<<<< Updated upstream
         // Send to background for LLM generation
         const response = await chrome.runtime.sendMessage({
             type: 'GENERATE_COMMENT',
@@ -430,6 +439,90 @@ async function generateAndDisplayComment(postElement, vibe = null) {
             authorName: postData.authorName,
             vibe: vibe // Pass vibe context
         });
+=======
+        // Fetch settings first to decide provider
+        const settings = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+
+        let response;
+
+        if (settings.llmProvider === 'nano' || settings.llmProvider === 'puter') {
+            // -----------------------------------------------------------
+            // Use Local AI Bridge (Main World) - Nano or Puter
+            // -----------------------------------------------------------
+            const isPuter = settings.llmProvider === 'puter';
+            statusText.textContent = isPuter ? 'Running Puter.js...' : 'Running Local Gemini Nano...';
+
+            response = await new Promise((resolve, reject) => {
+                const handler = (event) => {
+                    // Check source to avoid noise
+                    if (!event.data || event.data.source !== 'LCC_AI_BRIDGE') return;
+
+                    if (event.data.type === 'SUCCESS') {
+                        window.removeEventListener('message', handler);
+
+                        // Parse result if needed (Bridge returns raw text)
+                        let text = event.data.result || '';
+                        let analysis = {};
+                        try {
+                            const jsonMatch = text.match(/\{[\s\S]*\}/);
+                            if (jsonMatch) {
+                                const parsed = JSON.parse(jsonMatch[0]);
+                                text = parsed.comment || text;
+                                analysis = parsed.analysis || {};
+                            }
+                        } catch (e) { }
+
+                        resolve({
+                            success: true,
+                            comment: text,
+                            analysis,
+                            rateLimit: { remaining: 'Unlimited' }
+                        });
+                    } else if (event.data.type === 'DOWNLOAD_PROGRESS') {
+                        // Update progress in UI
+                        if (event.data.total > 0) {
+                            const percent = Math.round((event.data.loaded / event.data.total) * 100);
+                            statusText.textContent = `Downloading Model: ${percent}%`;
+                        }
+                    } else if (event.data.type === 'ERROR') {
+                        window.removeEventListener('message', handler);
+                        reject(new Error(event.data.error || 'Unknown AI Error'));
+                    }
+                };
+
+                window.addEventListener('message', handler);
+
+                // Construct Prompt
+                const fullPrompt = `You are a LinkedIn comment assistant.
+POST:
+${postData.content.slice(0, 1000)}
+
+Reply to this post professionally. Be concise (1 sentence). No emojis at start.`;
+
+                window.postMessage({
+                    source: 'LCC_CONTENT_SCRIPT',
+                    type: isPuter ? 'EXECUTE_PUTER' : 'EXECUTE_NANO',
+                    prompt: fullPrompt,
+                    settings
+                }, '*');
+
+                // Timeout (30s)
+                setTimeout(() => {
+                    window.removeEventListener('message', handler);
+                    reject(new Error('AI Request timed out. Check connection.'));
+                }, 30000);
+            });
+
+        } else {
+            // -----------------------------------------------------------
+            // Standard Remote Provider (Background)
+            // -----------------------------------------------------------
+            response = await chrome.runtime.sendMessage({
+                type: 'GENERATE_COMMENT',
+                postData
+            });
+        }
+>>>>>>> Stashed changes
 
         if (response.success) {
             statusEl.style.display = 'none';
@@ -441,7 +534,9 @@ async function generateAndDisplayComment(postElement, vibe = null) {
 
             // Update rate limit display
             if (response.rateLimit) {
-                rateLimitEl.textContent = `${response.rateLimit.remaining} suggestions remaining`;
+                rateLimitEl.textContent = response.rateLimit.remaining === 'Unlimited'
+                    ? '∞ (Local/Puter)'
+                    : `${response.rateLimit.remaining} suggestions remaining`;
             }
         } else {
             throw new Error(response.error);

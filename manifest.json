@@ -5,7 +5,8 @@
   "description": "AI-powered LinkedIn comment suggestions that preserve your authentic voice",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "offscreen"
   ],
   "host_permissions": [
     "*://*.linkedin.com/*"
@@ -26,6 +27,16 @@
       "css": [
         "ui/styles.css"
       ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://*.linkedin.com/*"
+      ],
+      "js": [
+        "content/ai-bridge.js"
+      ],
+      "world": "MAIN",
       "run_at": "document_idle"
     }
   ],

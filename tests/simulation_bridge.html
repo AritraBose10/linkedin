@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Bridge Simulation</title>
+</head>
+
+<body>
+    <h1>Bridge Logic Test (Nano + Puter)</h1>
+    <div id="logs"></div>
+
+    <script>
+        function log(msg) {
+            const div = document.createElement('div');
+            div.textContent = msg;
+            document.getElementById('logs').appendChild(div);
+            // console.log(msg);
+        }
+
+        // 1. Mock window.ai / window.model (Nano)
+        window.ai = { languageModel: { capabilities: async () => ({ available: 'readily' }), create: async () => ({ prompt: async (txt) => JSON.stringify({ comment: "Nano: " + txt.slice(0, 5) }), promptStreaming: null }) } };
+
+        // 2. Mock Puter (Simulate previously loaded OR dynamic)
+        window.puter = { ai: { chat: async (txt) => "Puter: " + txt.slice(0, 5) } };
+
+        // 3. Bridge Logic (Mirroring ai-bridge.js)
+        // Note: Real bridge injects script if puter missing. We simulate it exists here.
+        window.addEventListener('message', async (event) => {
+            if (!event.data || event.data.source !== 'LCC_CONTENT_SCRIPT') return;
+
+            log('Bridge req: ' + event.data.type);
+
+            try {
+                if (event.data.type === 'EXECUTE_NANO') {
+                    const session = await window.ai.languageModel.create();
+                    const result = await session.prompt(event.data.prompt);
+                    window.postMessage({ source: 'LCC_AI_BRIDGE', type: 'SUCCESS', result }, '*');
+                } else if (event.data.type === 'EXECUTE_PUTER') {
+                    // Simulate loading delay check
+                    if (!window.puter) throw new Error("Puter failed");
+                    const result = await window.puter.ai.chat(event.data.prompt);
+                    window.postMessage({ source: 'LCC_AI_BRIDGE', type: 'SUCCESS', result }, '*');
+                }
+            } catch (e) {
+                window.postMessage({ source: 'LCC_AI_BRIDGE', type: 'ERROR', error: e.message }, '*');
+            }
+        });
+
+        // 4. Test Scenario
+        setTimeout(() => {
+            log('Starting tests...');
+
+            const handler = (event) => {
+                if (event.data.type === 'SUCCESS') log('Response: ' + event.data.result);
+            };
+            window.addEventListener('message', handler);
+
+            // Test Puter (since user wants fallback)
+            log('Sending PUTER request...');
+            window.postMessage({ source: 'LCC_CONTENT_SCRIPT', type: 'EXECUTE_PUTER', prompt: 'Hello Puter' }, '*');
+
+        }, 500);
+    </script>
+</body>
+
+</html>

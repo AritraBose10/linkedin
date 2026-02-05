@@ -104,128 +104,110 @@
     }
 
     .input-hint {
-      font-size: 12px;
-      color: #6c757d;
+      display: block;
       margin-top: 6px;
+      font-size: 12px;
+      color: #868e96;
     }
 
-    .btn {
-      display: inline-flex;
+    .range-wrap {
+      display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 12px 24px;
+      gap: 12px;
+    }
+
+    .range-value {
       font-size: 14px;
       font-weight: 600;
-      border: none;
-      border-radius: 10px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .btn-primary {
-      background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0, 119, 181, 0.3);
-    }
-
-    .btn-secondary {
-      background: #f8f9fa;
-      color: #495057;
-      border: 1px solid #dee2e6;
-    }
-
-    .btn-secondary:hover {
-      background: #e9ecef;
+      color: #0077b5;
+      width: 30px;
     }
 
     .actions {
       display: flex;
       gap: 12px;
-      margin-top: 24px;
+      margin-top: 30px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: #0077b5;
+      color: white;
+      box-shadow: 0 4px 12px rgba(0, 119, 181, 0.2);
+    }
+
+    .btn-secondary {
+      background: #e9ecef;
+      color: #495057;
     }
 
     .toast {
       position: fixed;
       bottom: 20px;
-      right: 20px;
-      padding: 14px 24px;
-      background: #28a745;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #333;
       color: white;
-      border-radius: 10px;
-      font-weight: 500;
-      box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
-      transform: translateY(100px);
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 14px;
       opacity: 0;
-      transition: all 0.3s ease;
+      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      z-index: 1000;
     }
 
     .toast.show {
-      transform: translateY(0);
+      transform: translateX(-50%) translateY(0);
       opacity: 1;
+    }
+
+    .toast.success {
+      background: #28a745;
     }
 
     .toast.error {
       background: #dc3545;
     }
 
-    .range-group {
-      display: flex;
-      align-items: center;
-      gap: 12px;
+    .hidden {
+      display: none !important;
     }
-
-    .range-group input[type="range"] {
-      flex: 1;
-      padding: 0;
-      height: 6px;
-      -webkit-appearance: none;
-      background: #dee2e6;
-      border-radius: 3px;
-      border: none;
-    }
-
-    .range-group input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 18px;
-      height: 18px;
-      background: #0077b5;
-      border-radius: 50%;
-      cursor: pointer;
-    }
-
-    .range-value {
-      min-width: 40px;
-      text-align: center;
-      font-weight: 600;
-      color: #0077b5;
-    }
-
+    
     .stats {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
+      gap: 12px;
     }
-
+  
     .stat {
-      text-align: center;
-      padding: 16px;
       background: #f8f9fa;
+      padding: 12px;
       border-radius: 12px;
+      text-align: center;
     }
-
+  
     .stat-value {
-      font-size: 24px;
+      font-size: 18px;
       font-weight: 700;
       color: #0077b5;
     }
-
+  
     .stat-label {
-      font-size: 12px;
+      font-size: 11px;
       color: #6c757d;
       margin-top: 4px;
     }
@@ -235,69 +217,67 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>💬 LinkedIn Comment Copilot</h1>
-      <p>Configure your AI-powered comment assistant</p>
+      <h1>
+        <span>💬</span> LinkedIn Comment Copilot
+      </h1>
+      <p>Configure your AI assistant settings</p>
     </div>
 
     <div class="card">
-      <h2>🔑 API Configuration</h2>
-
+      <h2>🤖 AI Provider</h2>
       <div class="form-group">
         <label for="provider">LLM Provider</label>
         <select id="provider">
-          <option value="openai">OpenAI (GPT-4o)</option>
+          <option value="openai">OpenAI</option>
           <option value="gemini">Google Gemini</option>
           <option value="anthropic">Anthropic Claude</option>
-          <option value="groq">Groq (Free & Fast)</option>
+          <option value="groq">Groq (Llama 3)</option>
+          <option value="nano">Google Gemini Nano (Local)</option>
+          <option value="puter">Puter.js (Free)</option>
         </select>
       </div>
 
-      <div class="form-group">
+      <div class="form-group" id="apiKeyGroup">
         <label for="apiKey">API Key</label>
-        <input type="password" id="apiKey" placeholder="Enter your API key">
-        <p class="input-hint">Your key is stored locally and never sent to any server except your chosen LLM provider.
-        </p>
+        <input type="password" id="apiKey" placeholder="sk-...">
+        <span class="input-hint">Your key is stored locally in your browser.</span>
       </div>
 
       <div class="form-group">
         <label for="model">Model</label>
         <select id="model">
-          <!-- Populated dynamically based on provider -->
+          <!-- Populated by JS -->
         </select>
       </div>
     </div>
 
     <div class="card">
       <h2>⚙️ Generation Settings</h2>
-
       <div class="form-group">
-        <label>Temperature (Creativity)</label>
-        <div class="range-group">
+        <label for="temperature">Creativity (Temperature)</label>
+        <div class="range-wrap">
           <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.8">
           <span class="range-value" id="tempValue">0.8</span>
         </div>
-        <p class="input-hint">Lower = more focused, Higher = more creative</p>
+        <span class="input-hint">Higher values make comments more creative but less predictable.</span>
       </div>
 
       <div class="form-group">
-        <label for="maxTokens">Max Words</label>
+        <label for="maxTokens">Max Length (Tokens)</label>
         <select id="maxTokens">
-          <option value="50">10 words</option>
-          <option value="100" selected>20 words</option>
-          <option value="150">30 words</option>
-          <option value="200">40 words</option>
+          <option value="50">Short (~10 words)</option>
+          <option value="100">Medium (~25 words)</option>
+          <option value="150">Long (~40 words)</option>
+          <option value="300">Detailed (~80 words)</option>
         </select>
       </div>
     </div>
-
-    <div class="card">
-      <h2>🧬 Style Identity (Copy-Cat Protocol)</h2>
-      <p style="margin-bottom: 16px; color: #666; font-size: 13px;">Paste 5-10 of your actual LinkedIn comments below.
-        The AI will analyze your sentence length, emoji frequency, and punctuation to mimic you.</p>
-
+    
+    <div class="card" id="styleCard">
+      <h2>🗣️ Clone Your Voice</h2>
       <div class="form-group">
-        <textarea id="trainingData" rows="6"
-          placeholder="Example:\nGreat insights here! I love how you framed the problem.\n\nThanks for sharing this perspective.\n\nInteresting take, but have you considered X?"></textarea>
+        <label for="trainingData">Paste your recent comments/posts to learn style:</label>
+        <textarea id="trainingData" rows="4" style="width:100%; padding:10px; border-radius:10px; border:1px solid #dee2e6; font-size:13px;" placeholder="Example: Great insights here! I love how you framed the problem.\n\nThanks for sharing this perspective.\n\nInteresting take, but have you considered X?"></textarea>
       </div>
 
       <div id="styleStats"

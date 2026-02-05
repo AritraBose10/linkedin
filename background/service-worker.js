@@ -21,6 +21,36 @@ const DEFAULT_SETTINGS = {
 };
 
 // ============================================================================
+// Offscreen Document Helper
+// ============================================================================
+
+let creatingOffscreen;
+async function setupOffscreenDocument(path) {
+  // Check if offscreen document exists
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+    documentUrls: [chrome.runtime.getURL(path)]
+  });
+
+  if (existingContexts.length > 0) {
+    return;
+  }
+
+  // Create offscreen document
+  if (creatingOffscreen) {
+    await creatingOffscreen;
+  } else {
+    creatingOffscreen = chrome.offscreen.createDocument({
+      url: path,
+      reasons: ['WORKERS'], // Use WORKERS reason for background processing
+      justification: 'Run Gemini Nano AI model'
+    });
+    await creatingOffscreen;
+    creatingOffscreen = null;
+  }
+}
+
+// ============================================================================
 // Storage Helpers
 // ============================================================================
 
@@ -76,13 +106,28 @@ async function recordCommentGeneration() {
 }
 
 // ============================================================================
+// Cache Helpers
+// ============================================================================
+async function getCache() {
+  const r = await chrome.storage.local.get('responseCache');
+  return r.responseCache || {};
+}
+
+async function setCache(key, value) {
+  const cache = await getCache();
+  cache[key] = { value, timestamp: Date.now() };
+  await chrome.storage.local.set({ responseCache: cache });
+}
+
+// ============================================================================
 // LLM API Integration
 // ============================================================================
 
-async function callLLM(messages, settings) {
+async function callLLM(messages, settings, retryCount = 0) {
   const { llmProvider, apiKey, model, maxTokens, temperature } = settings;
+  const MAX_RETRIES = 3;
 
-  if (!apiKey) {
+  if (!apiKey && llmProvider !== 'nano' && llmProvider !== 'puter') {
     throw new Error('API key not configured. Please set it in extension options.');
   }
 
@@ -108,7 +153,7 @@ async function callLLM(messages, settings) {
       headers = { 'Content-Type': 'application/json' };
       body = {
         contents: messages.map(m => ({
-          role: m.role === 'assistant' ? 'model' : m.role,
+          role: m.role === 'assistant' ? 'model' : (m.role === 'system' ? 'user' : m.role),
           parts: [{ text: m.content }]
         })),
         generationConfig: {
@@ -148,35 +193,91 @@ async function callLLM(messages, settings) {
       };
       break;
 
+    case 'nano':
+      // Route to Offscreen Document
+      try {
+        await setupOffscreenDocument('offscreen/offscreen.html');
+
+        // Construct prompt
+        const systemMsg = messages.find(m => m.role === 'system')?.content || '';
+        const userMsg = messages.find(m => m.role === 'user')?.content || '';
+        const fullPrompt = `${systemMsg}\n\n${userMsg}`;
+
+        // Send to offscreen
+        const offscreenResp = await chrome.runtime.sendMessage({
+          type: 'EXECUTE_NANO',
+          prompt: fullPrompt,
+          settings: { temperature: settings.temperature }
+        });
+
+        if (!offscreenResp.success) {
+          throw new Error(offscreenResp.error);
+        }
+        return offscreenResp.result;
+      } catch (e) {
+        throw new Error(`Offscreen AI Error: ${e.message}`);
+      }
+    
+    // Puter is handled in content script via bridge, but if called here we should error or handle
+    case 'puter':
+        throw new Error('Puter.js must be executed from content script via Main World Bridge');
+
     default:
       throw new Error(`Unsupported LLM provider: ${llmProvider}`);
   }
 
-  const response = await fetch(endpoint, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body)
-  });
+  // Fetch Logic (for remote providers)
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`LLM API error: ${response.status} - ${error}`);
-  }
+    if (!response.ok) {
+        const errorText = await response.text();
 
-  const data = await response.json();
+        // Handle Rate Limiting (429)
+        if (response.status === 429 && retryCount < MAX_RETRIES) {
+          let waitTime = 5; // Default 5s
+  
+          const retryAfter = response.headers.get('Retry-After');
+          if (retryAfter) waitTime = parseInt(retryAfter, 10) || 5;
+          else {
+            const match = errorText.match(/retry in (\d+(\.\d+)?)s/);
+            if (match) waitTime = parseFloat(match[1]);
+          }
+  
+          console.log(`Rate limit hit (429). Waiting ${waitTime}s to retry...`);
+          await new Promise(r => setTimeout(r, waitTime * 1000 + 1000));
+          return callLLM(messages, settings, retryCount + 1);
+        }
+  
+        throw new Error(`LLM API error: ${response.status} - ${errorText}`);
+    }
 
-  // Extract response based on provider
-  switch (llmProvider) {
-    case 'openai':
-      return data.choices[0].message.content;
-    case 'gemini':
-      return data.candidates[0].content.parts[0].text;
-    case 'anthropic':
-      return data.content[0].text;
-    case 'groq':
-      return data.choices[0].message.content;
-    default:
-      throw new Error('Unknown provider response format');
+    const data = await response.json();
+
+    // Extract response based on provider
+    switch (llmProvider) {
+      case 'openai':
+      case 'groq': 
+        return data.choices[0].message.content;
+      case 'gemini':
+        return data.candidates[0].content.parts[0].text;
+      case 'anthropic':
+        return data.content[0].text;
+      default:
+        throw new Error('Unknown provider response format');
+    }
+  } catch (err) {
+    if (retryCount < MAX_RETRIES && !err.message.includes('401') && !err.message.includes('403') && llmProvider !== 'nano') {
+        // Exponential backoff for non-auth errors
+        const backoff = 1000 * Math.pow(2, retryCount);
+        await new Promise(r => setTimeout(r, backoff));
+        return callLLM(messages, settings, retryCount + 1);
+      }
+      throw err;
   }
 }
 
@@ -251,7 +352,7 @@ ${vibeInstructions}`
 async function generateComment(postContent, authorName, vibe) {
   const settings = await getSettings();
 
-  // Check rate limit
+  // 1. Check rate limit
   const rateLimit = await checkRateLimit();
   if (!rateLimit.allowed) {
     return {
@@ -260,27 +361,54 @@ async function generateComment(postContent, authorName, vibe) {
     };
   }
 
+  // 2. Check Cache
+  // Simple hash of content + author
+  const cacheKey = `c_${authorName}_${postContent.slice(0, 50).replace(/\W/g, '')}`;
+  const cache = await getCache();
+  const cachedFn = cache[cacheKey];
+
+  if (cachedFn && (Date.now() - cachedFn.timestamp < 24 * 60 * 60 * 1000)) {
+     // If cached, we might need to verify if vibe matches, but simpler to just return
+     // if the cache key is simple. But if vibe changed, we might want new comment.
+     // For now, let's assume cache is robust enough or we accept cache hits.
+     // Actually, if Vibe is set, specific generation is requested, so maybe skip cache if vibe is present?
+     // Let's skip cache if Vibe is active.
+     if (!vibe) {
+         console.log('Returning cached comment');
+         return cachedFn.value;
+     }
+  }
+
   try {
     // Stage 1: Analyze post
     const analysisPrompt = buildAnalysisPrompt(postContent, { name: authorName, headline: 'LinkedIn Member' });
-    const analysisResponse = await callLLM([
-      analysisPrompt,
-      { role: 'user', content: 'Analyze this post.' }
-    ], settings);
-
     let analysis;
+    
+    // Nano might struggle with complex analysis or return non-JSON.
+    // If Nano, we might skip analysis or simplify.
+    // But let's try calling it.
     try {
-      analysis = JSON.parse(analysisResponse);
-    } catch {
-      analysis = { focalPoint: postContent.slice(0, 100), recommendedTone: 'professional' };
+        const analysisResponse = await callLLM([
+        analysisPrompt,
+        { role: 'user', content: 'Analyze this post.' }
+        ], settings);
+    
+        try {
+            const cleanJson = analysisResponse.replace(/```json|```/g, '').trim();
+            analysis = JSON.parse(cleanJson);
+        } catch {
+            analysis = { focalPoint: postContent.slice(0, 100), recommendedTone: 'professional' };
+        }
+    } catch (e) {
+        // Fallback if analysis fails (e.g. Nano error)
+         console.warn("Analysis failed, using fallback", e);
+         analysis = { focalPoint: postContent.slice(0, 100), recommendedTone: 'professional' };
     }
 
     // Stage 2: Generate comment
     const userStyle = await chrome.storage.local.get('userStyle');
 
-    // Derive word limit from maxTokens (approx 5 tokens per word in this specific options mapping)
-    // Options: 50 -> 10 words, 100 -> 20 words, 150 -> 30 words, 200 -> 40 words
-    // If settings.maxTokens is custom or large, default to 20 to be safe.
+    // Derive word limit
     let wordLimit = 20;
     if (settings.maxTokens && settings.maxTokens <= 200) {
       wordLimit = Math.floor(settings.maxTokens / 5);
@@ -297,15 +425,18 @@ async function generateComment(postContent, authorName, vibe) {
       { role: 'user', content: promptContent }
     ], settings);
 
-    // Record for rate limiting
+    const finalResponse = {
+        success: true,
+        comment: comment.trim(),
+        analysis: analysis,
+        rateLimit: await checkRateLimit()
+    };
+
+    // 4. Save to Cache and History
+    await setCache(cacheKey, finalResponse);
     await recordCommentGeneration();
 
-    return {
-      success: true,
-      comment: comment.trim(),
-      analysis,
-      rateLimit: await checkRateLimit()
-    };
+    return finalResponse;
 
   } catch (error) {
     return {
@@ -343,6 +474,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     checkRateLimit().then(sendResponse);
     return true;
   }
+  
+  // Forwarding executing nano if needed by other parts? 
+  // But generateComment handles it internally now.
 });
 
 // ============================================================================

@@ -27,6 +27,12 @@ const MODELS = {
         { value: 'llama-3.1-8b-instant', label: 'Llama 3.1 8B (Fastest)' },
         { value: 'mixtral-8x7b-32768', label: 'Mixtral 8x7B' },
         { value: 'gemma2-9b-it', label: 'Gemma 2 9B' }
+    ],
+    nano: [
+        { value: 'default', label: 'On-Device Model (Offline)' }
+    ],
+    puter: [
+        { value: 'default', label: 'Puter.js (Free)' }
     ]
 };
 
@@ -54,6 +60,14 @@ function updateModels() {
     elements.model.innerHTML = models
         .map(m => `<option value="${m.value}">${m.label}</option>`)
         .join('');
+    
+    // Toggle API Key visibility
+    const apiKeyGroup = document.getElementById('apiKeyGroup');
+    if (provider === 'nano' || provider === 'puter') {
+        apiKeyGroup.style.display = 'none';
+    } else {
+        apiKeyGroup.style.display = 'block';
+    }
 }
 
 // Load settings from storage
