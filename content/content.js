@@ -119,34 +119,34 @@ try {
     console.error('VibeEngine failed to load', e);
 }
 
-function createFloatingButton() {
+function createFloatingButton(postElement) {
     const container = document.createElement('div');
     container.className = 'lcc-button-container';
     container.style.cssText = `
         position: absolute;
-        z-index: 10000;
         display: flex;
         align-items: center;
         gap: 8px;
-        transition: all 0.2s ease;
-        opacity: 0; /* Start hidden */
-        transform: translateY(5px); /* Start slightly offset */
         z-index: 10000;
+        transition: all 0.3s ease;
     `;
 
     const mainBtn = document.createElement('button');
     mainBtn.className = 'lcc-suggest-btn';
     mainBtn.innerHTML = `
-        <span style="font-size: 16px; margin-right: 6px;">✨</span>
+        <span style="font-size: 16px;">✨</span>
         <span>Suggest</span>
     `;
     mainBtn.style.cssText = `
-        border: 1px solid #0a66c2;
-        background: transparent;
-        color: #0a66c2;
-        padding: 4px 12px;
+        background: white;
+        border: 1px solid #191919;
         border-radius: 16px;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        padding: 5px 12px;
+        color: #191919;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: -apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto;
         font-size: 13px;
         font-weight: 600;
         cursor: pointer;
@@ -180,10 +180,11 @@ function createFloatingButton() {
 
     // Hover interactions
     container.addEventListener('mouseenter', async () => {
-        if (!state.currentPost || vibeContainer.children.length > 0) return;
+        // Use passed postElement instead of global state
+        if (!postElement || vibeContainer.children.length > 0) return;
 
         // Lazy analyze post
-        const postData = extractPostData(state.currentPost);
+        const postData = extractPostData(postElement);
         const vibes = vibeEngine ? vibeEngine.analyze(postData.content) : [];
 
         // Render Vibe Buttons
@@ -213,7 +214,7 @@ function createFloatingButton() {
 
             btn.onclick = (e) => {
                 e.stopPropagation();
-                showSuggestionPanel(state.currentPost, vibe);
+                showSuggestionPanel(postElement, vibe);
             };
 
             vibeContainer.appendChild(btn);
@@ -228,31 +229,40 @@ function createFloatingButton() {
     return container;
 }
 
-function showButton(postElement) {
-    if (state.currentButton) {
-        state.currentButton.remove();
+// Renamed for clarity: Injects permanent button
+function injectButton(postElement) {
+    if (postElement.dataset.lccEnhanced) return;
+
+    // Find Header to Inject Into
+    const header = postElement.querySelector('.update-components-actor') ||
+        postElement.querySelector('.feed-shared-actor') ||
+        postElement.querySelector('.update-components-header');
+
+    if (!header) return;
+
+    if (!header) return;
+
+    // Pass postElement to createFloatingButton for local scoping
+    const buttonContainer = createFloatingButton(postElement);
+
+    // V2: Header Injection Styles - Permanent
+    buttonContainer.style.position = 'relative';
+    buttonContainer.style.marginLeft = 'auto'; // Push to right
+    buttonContainer.style.alignSelf = 'flex-start'; // Align top
+    buttonContainer.style.marginTop = '4px';
+    buttonContainer.style.opacity = '1'; // Visible immediately
+    buttonContainer.style.transform = 'translateY(0)';
+
+    // Ensure header is positioned for containment
+    if (getComputedStyle(header).position === 'static') {
+        header.style.position = 'relative';
     }
-    state.currentPost = postElement; // Store ref for extraction
+    header.style.overflow = 'visible';
 
-    const buttonContainer = createFloatingButton();
-    const rect = postElement.getBoundingClientRect();
+    header.appendChild(buttonContainer);
 
-    // Add slight randomization to position (anti-pattern detection)
-    const randomX = Math.floor(Math.random() * 20) - 10;
-    const randomY = Math.floor(Math.random() * 10) - 5;
-
-    buttonContainer.style.top = `${rect.top + window.scrollY + CONFIG.buttonOffset.y + randomY}px`;
-    buttonContainer.style.right = `${window.innerWidth - rect.right + CONFIG.buttonOffset.x + randomX}px`;
-
-    document.body.appendChild(buttonContainer);
-    state.currentButton = buttonContainer;
-
-    // Animate in after delay (simulates reading time)
-    setTimeout(() => {
-        buttonContainer.style.opacity = '1';
-        buttonContainer.style.transform = 'translateY(0)';
-        state.buttonVisible = true;
-    }, CONFIG.buttonFadeDelay);
+    // Mark as enhanced
+    postElement.dataset.lccEnhanced = 'true';
 
     // Click handler for main button
     buttonContainer.querySelector('.lcc-suggest-btn').addEventListener('click', (e) => {
@@ -557,22 +567,14 @@ async function handleInsert(postElement) {
             throw new Error('Could not find text editor');
         }
 
-        // 3. Insert Text
+        // 3. Insert Text via Human Simulation
         editor.focus();
 
-        // Use execCommand for better compatibility with rich text editors as it triggers native events
-        const success = document.execCommand('insertText', false, commentText);
-        if (!success) {
-            // Fallback
-            editor.innerText = commentText;
-        }
+        // Use the new Human Typing Simulation
+        await simulateHumanTyping(editor, commentText);
 
-        // 4. Trigger events to enable "Post" button
-        // LinkedIn reacts to 'input' event mainly, but needs bubbling and composition
+        // 4. Trigger final events to ensure "Post" button is enabled
         const eventOpts = { bubbles: true, composed: true };
-
-        editor.dispatchEvent(new InputEvent('beforeinput', { ...eventOpts, inputType: 'insertText', data: commentText }));
-        editor.dispatchEvent(new InputEvent('input', { ...eventOpts, inputType: 'insertText', data: commentText }));
         editor.dispatchEvent(new Event('change', eventOpts));
 
         // Focusout/in cycle often triggers validation
@@ -604,61 +606,28 @@ async function handleInsert(postElement) {
 // ============================================================================
 
 function setupPostTracking() {
-    document.addEventListener('mouseover', (e) => {
-        const post = e.target.closest(SELECTORS.feedPost);
+    // 1. Initial Scan
+    const existingPosts = document.querySelectorAll(SELECTORS.feedPost);
+    existingPosts.forEach(injectButton);
 
-        if (post && post !== state.hoveredPost) {
-            // Ignore fast scrolling
-            if (state.scrollVelocity > CONFIG.scrollVelocityThreshold) {
-                return;
-            }
-
-            // Check if post is in viewport center
-            if (!isPostInViewportCenter(post)) {
-                return;
-            }
-
-            state.hoveredPost = post;
-            state.hoverStartTime = Date.now();
-
-            // Clear any pending hide logic if we re-enter
-            if (state.persistenceTimeout) {
-                clearTimeout(state.persistenceTimeout);
-                state.persistenceTimeout = null;
-            }
-
-            // Show button after dwell time
-            setTimeout(() => {
-                if (state.hoveredPost === post &&
-                    Date.now() - state.hoverStartTime >= CONFIG.minDwellTime &&
-                    !state.panelVisible) {
-                    showButton(post);
+    // 2. Observe for new posts (Infinite Scroll)
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node.nodeType === 1) { // Element node
+                    // Check if node itself is a post
+                    if (node.matches && node.matches(SELECTORS.feedPost)) {
+                        injectButton(node);
+                    }
+                    // Check children
+                    const posts = node.querySelectorAll ? node.querySelectorAll(SELECTORS.feedPost) : [];
+                    posts.forEach(injectButton);
                 }
-            }, CONFIG.minDwellTime);
-        }
+            });
+        });
     });
 
-    document.addEventListener('mouseout', (e) => {
-        const post = e.target.closest(SELECTORS.feedPost);
-        const relatedPost = e.relatedTarget?.closest(SELECTORS.feedPost);
-
-        if (post === state.hoveredPost && relatedPost !== post) {
-            // Check if moving to button or panel
-            const isMovingToUI = e.relatedTarget?.closest('#lcc-suggest-btn, #lcc-panel');
-
-            if (!isMovingToUI && !state.panelVisible) {
-                // state.hoveredPost = null; // Don't clear immediately
-
-                // Add persistence delay (15 seconds)
-                if (state.persistenceTimeout) clearTimeout(state.persistenceTimeout);
-
-                state.persistenceTimeout = setTimeout(() => {
-                    state.hoveredPost = null;
-                    hideButton();
-                }, 15000); // 15 seconds persistence
-            }
-        }
-    });
+    observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // ============================================================================
@@ -705,36 +674,85 @@ if (document.readyState === 'loading') {
 }
 
 /**
- * Simulates human typing with variable speed and pauses
+ * Simulates human typing with variable speed, pauses, and error correction
+ */
+function simulateHumanTyping(element, text) {
+    return new Promise(async (resolve) => {
+        // Clear existing content if needed, or append.
+        // For comment boxes, we usually want to start fresh or append. 
+        // Let's assume we append to whatever is focused/current.
+
+        let i = 0;
+        while (i < text.length) {
+            // 1. Chance to make a mistake (5%)
+            if (Math.random() < 0.05 && i > 0) {
+                const wrongChar = String.fromCharCode(97 + Math.floor(Math.random() * 26)); // Random lowercase
+                document.execCommand('insertText', false, wrongChar);
+                triggerInputEvents(element, wrongChar);
+
+                // Reaction delay (realizing mistake)
+                await delay(Math.random() * 200 + 150);
+
+                // Backspace
+                document.execCommand('delete', false);
+                triggerInputEvents(element, null); // Trigger input for delete
+
+                await delay(Math.random() * 100 + 50);
+            }
+
+            // 2. Type correct character
+            const char = text.charAt(i);
+            document.execCommand('insertText', false, char);
+            triggerInputEvents(element, char);
+            i++;
+
+            // 3. Variable delay between keystrokes
+            let typeDelay = Math.random() * 30 + 30; // 30-60ms base
+
+            // Slower for capitals or special chars
+            if (char !== char.toLowerCase() || '.,?!'.includes(char)) {
+                typeDelay += 50;
+            }
+
+            // Pauses
+            if (char === ' ') typeDelay += 20;
+            if (char === ',') typeDelay += Math.random() * 100 + 50;
+            if ('.?!'.includes(char)) typeDelay += Math.random() * 300 + 150;
+
+            await delay(typeDelay);
+        }
+        resolve();
+    });
+}
+
+// Helper to trigger events that React/Frameworks listen for
+function triggerInputEvents(element, char) {
+    const eventOpts = { bubbles: true, composed: true };
+    if (char) {
+        element.dispatchEvent(new InputEvent('beforeinput', { ...eventOpts, inputType: 'insertText', data: char }));
+        element.dispatchEvent(new InputEvent('input', { ...eventOpts, inputType: 'insertText', data: char }));
+    } else {
+        // Deletion events
+        element.dispatchEvent(new InputEvent('beforeinput', { ...eventOpts, inputType: 'deleteContentBackward', data: null }));
+        element.dispatchEvent(new InputEvent('input', { ...eventOpts, inputType: 'deleteContentBackward', data: null }));
+    }
+}
+
+/**
+ * Visual-only typewriter for the preview panel (non-editable elements)
  */
 function typewriterEffect(element, text) {
     return new Promise(resolve => {
         let i = 0;
-
         function type() {
             if (i < text.length) {
-                const char = text.charAt(i);
-                element.textContent += char;
+                element.textContent += text.charAt(i);
                 i++;
-
-                // Base speed: 10-30ms (fast typer)
-                let delay = Math.random() * 20 + 10;
-
-                // "Thinking" pauses
-                if (char === '.' || char === '!' || char === '?') {
-                    delay += Math.random() * 300 + 100; // End of sentence pause
-                } else if (char === ',') {
-                    delay += Math.random() * 100 + 30;  // Comma pause
-                } else if (Math.random() < 0.01) {
-                    delay += Math.random() * 200 + 50; // Random "thought process" break
-                }
-
-                setTimeout(type, delay);
+                setTimeout(type, Math.random() * 20 + 10);
             } else {
                 resolve();
             }
         }
-
         type();
     });
 }
