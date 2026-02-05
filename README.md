@@ -1,14 +1,15 @@
 # LinkedIn Comment Copilot
 
-AI-powered LinkedIn comment suggestions that preserve your authentic voice — without auto-posting, bulk actions, or detection risks.
+AI-powered LinkedIn comment suggestions that preserve your authentic voice — without auto-posting, bulk actions, or detection risks. Now featuring **Silent Learning** and **Local AI** support.
 
 ## 🚀 Features
 
 - **Contextual Activation** — Floating button appears only when you hover over a post for 3+ seconds
 - **Smart Analysis** — Understands post tone, author seniority, and engagement level
-- **Style Fingerprinting** — Learns your commenting patterns to match your voice
+- **Silent Learning** — Automatically refines your style profile based on your edits and rewrites (no manual training needed!)
+- **Local AI** — Run completely offline using **Google Gemini Nano** (Chrome Built-in) or **Puter.js** fallback
+- **Model-Agnostic** — Also supports OpenAI, Google Gemini (Cloud), Anthropic Claude, and Groq
 - **Anti-Detection** — Built-in variance, rate limiting, and pattern prevention
-- **Model-Agnostic** — Works with OpenAI, Google Gemini, or Anthropic Claude
 
 ## ⚙️ Installation
 
@@ -17,61 +18,57 @@ AI-powered LinkedIn comment suggestions that preserve your authentic voice — w
 3. Enable "Developer mode" (top right)
 4. Click "Load unpacked" and select the extension folder
 5. Click the extension icon and go to **Settings**
-6. Add your LLM API key (OpenAI, Gemini, or Claude)
+6. Choose your **LLM Provider** (Cloud or Local)
 
-## 🔑 API Key Setup
+## 🔑 AI Provider Setup
 
-| Provider | Get API Key |
-|----------|-------------|
-| OpenAI | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
-| Google Gemini | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
-| Anthropic | [console.anthropic.com](https://console.anthropic.com) |
+| Provider | Type | Usage |
+|----------|------|-------|
+| **Gemini Nano** | Local | **Free & Private.** Runs inside Chrome (Requires Chrome Canary/Dev + Flag Enablement). |
+| **Puter.js** | Local | **Free Fallback.** Runs reliably in standard browsers with no setup. |
+| **OpenAI** | Cloud | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+| **Google Gemini** | Cloud | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| **Anthropic** | Cloud | [console.anthropic.com](https://console.anthropic.com) |
 
 ## 📁 Project Structure
 
 ```
 linkedin-comment-copilot/
-├── manifest.json         # Extension manifest (MV3)
+├── manifest.json            # Extension manifest (MV3)
 ├── background/
-│   └── service-worker.js # LLM API, rate limiting
+│   └── service-worker.js    # LLM API, Learning Logic, Rate Limiting
 ├── content/
-│   └── content.js        # LinkedIn DOM interaction
+│   ├── content.js           # UI Injection & Interaction Listeners
+│   └── ai-bridge.js         # Main World Bridge for Local AI Access
 ├── core/
-│   ├── analyzer.js       # Post analysis
-│   ├── fingerprint.js    # Style learning
-│   └── antidetect.js     # Pattern prevention
+│   ├── analyzer.js          # Post analysis
+│   ├── style-engine.js      # Universal Style Analysis & Learning
+│   └── fingerprint.js       # Style Matching
+├── offscreen/               # Gemini Nano Execution Environment
 ├── services/
-│   ├── llm.js           # LLM API wrapper
-│   ├── cache.js         # Semantic caching
-│   └── storage.js       # Data persistence
-├── ui/
-│   └── styles.css       # Panel styling
-├── options/
-│   ├── options.html     # Settings page
-│   └── options.js
-├── popup/
-│   ├── popup.html       # Toolbar popup
-│   └── popup.js
-└── icons/               # Extension icons
+│   ├── cache.js             # Semantic Caching
+│   └── storage.js           # Data Persistence
+├── options/                 # Settings Page
+├── popup/                   # Toolbar Popup
+└── icons/
 ```
 
-## 🛡️ Safety Features
+## 🧠 Silent Learning Mode
+
+The extension now learns from you automatically:
+1.  **Draft**: Use the AI to generate a comment.
+2.  **Refine**: Edit the text in the preview box or LinkedIn editor before posting.
+3.  **Learn**: When you click "Insert" or "Copy", the extension compares the final text to the generated one.
+4.  **Evolve**: Your style profile updates automatically in the background to match your voice better next time.
+
+## 🛡️ Safety & Privacy
 
 | Feature | Description |
 |---------|-------------|
-| Rate Limiting | Max 10 comments/hour |
-| Similarity Detection | Blocks comments >60% similar to recent |
-| Pattern Prevention | Detects repeated openings, lengths, emoji positions |
-| Manual Only | Copy/paste required — no auto-posting |
-| Local Storage | All data stays in your browser |
-
-## 🎯 How It Works
-
-1. **Browse LinkedIn** — Open your feed as normal
-2. **Pause on a post** — The "Suggest" button appears after 3 seconds
-3. **Click Suggest** — AI analyzes the post and generates a comment
-4. **Copy & Paste** — Manually paste into LinkedIn's comment box
-5. **Edit if needed** — Refine the suggestion to your liking
+| **Local-First** | Local AI models process data entirely on your device. |
+| **Privacy** | Learning corpus and style profiles are stored ONLY in your browser (`chrome.storage.local`). |
+| **Rate Limiting** | Max 10 comments/hour to prevent spam identification. |
+| **Manual Only** | Copy/paste required — no auto-posting. |
 
 ## 🔧 Development
 

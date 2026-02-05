@@ -14,7 +14,8 @@ class StyleEngine {
      * @returns {Object} StyleProfile
      */
     analyze(corpus) {
-        const comments = corpus.split('\n').filter(c => c.trim().length > 5);
+        const cleanText = this.cleanCorpus(corpus);
+        const comments = cleanText.split('\n').filter(c => c.trim().length > 5);
         if (comments.length === 0) return this.getDefaultProfile();
 
         return {
@@ -27,6 +28,18 @@ class StyleEngine {
             lastUpdated: Date.now()
         };
     }
+
+    cleanCorpus(text) {
+        return text
+            // Remove [Timestamp] Name: format
+            .replace(/^\[.*?\]\s*.*?:/gm, '')
+            // Remove simple Date Name: format
+            .replace(/^\d{1,2}\/\d{1,2}\/\d{2,4},?\s*\d{1,2}:\d{2}.*?:\s*/gm, '')
+            // Remove generic "User:" prefixes if present
+            .replace(/^[A-Za-z ]+:\s*/gm, '');
+    }
+
+
 
     calculateAvgLength(comments) {
         const totalWords = comments.reduce((sum, c) => sum + c.trim().split(/\s+/).length, 0);
@@ -112,6 +125,11 @@ class StyleEngine {
     }
 }
 
-// Export for use in options page
-if (typeof module !== 'undefined') module.exports = StyleEngine;
-else window.StyleEngine = StyleEngine;
+// Export for use in options page and service worker
+if (typeof module !== 'undefined') {
+    module.exports = StyleEngine;
+} else if (typeof window !== 'undefined') {
+    window.StyleEngine = StyleEngine;
+} else if (typeof self !== 'undefined') {
+    self.StyleEngine = StyleEngine;
+}

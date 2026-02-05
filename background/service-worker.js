@@ -2,6 +2,7 @@
  * LinkedIn Comment Copilot - Background Service Worker
  * Handles LLM API communication, rate limiting, and storage management
  */
+importScripts('../core/style-engine.js');
 
 // ============================================================================
 // Constants & Configuration
@@ -10,6 +11,12 @@
 const RATE_LIMIT = {
   maxCommentsPerHour: 10,
   windowMs: 60 * 60 * 1000 // 1 hour
+};
+
+// Auto-Learning Configuration
+const LEARNING_CONFIG = {
+  batchSize: 5,        // Re-analyze every 5 new comments
+  maxCorpusSize: 50    // Keep last 50 comments for training
 };
 
 const DEFAULT_SETTINGS = {
@@ -72,63 +79,155 @@ async function saveRateLimitData(data) {
   await chrome.storage.local.set({ rateLimit: data });
 }
 
-// ============================================================================
-// Rate Limiting
-// ============================================================================
-
 async function checkRateLimit() {
   const data = await getRateLimitData();
   const now = Date.now();
-  const windowStart = now - RATE_LIMIT.windowMs;
 
-  // Filter timestamps within the window
-  const recentTimestamps = data.timestamps.filter(ts => ts > windowStart);
+  // Filter out timestamps older than the window
+  const validTimestamps = data.timestamps.filter(t => now - t < RATE_LIMIT.windowMs);
+
+  if (validTimestamps.length >= RATE_LIMIT.maxCommentsPerHour) {
+    return {
+      allowed: false,
+      resetTime: validTimestamps[0] + RATE_LIMIT.windowMs,
+      remaining: 0
+    };
+  }
+
+  // Save cleaned up timestamps
+  if (validTimestamps.length !== data.timestamps.length) {
+    await saveRateLimitData({ ...data, timestamps: validTimestamps });
+  }
 
   return {
-    allowed: recentTimestamps.length < RATE_LIMIT.maxCommentsPerHour,
-    remaining: RATE_LIMIT.maxCommentsPerHour - recentTimestamps.length,
-    resetIn: recentTimestamps.length > 0
-      ? Math.ceil((recentTimestamps[0] + RATE_LIMIT.windowMs - now) / 1000 / 60)
-      : 0
+    allowed: true,
+    remaining: RATE_LIMIT.maxCommentsPerHour - validTimestamps.length
   };
 }
 
 async function recordCommentGeneration() {
   const data = await getRateLimitData();
   const now = Date.now();
-  const windowStart = now - RATE_LIMIT.windowMs;
+  // Filter old AND add new
+  const validTimestamps = data.timestamps.filter(t => now - t < RATE_LIMIT.windowMs);
+  validTimestamps.push(now);
 
-  // Clean old timestamps and add new one
-  data.timestamps = data.timestamps.filter(ts => ts > windowStart);
-  data.timestamps.push(now);
+  const totalGenerated = (data.totalGenerated || 0) + 1;
 
-  await saveRateLimitData(data);
+  await saveRateLimitData({
+    timestamps: validTimestamps,
+    totalGenerated
+  });
+}
+
+// Caching Helpers
+async function getCache(key) {
+  const result = await chrome.storage.local.get(key);
+  const entry = result[key];
+  if (!entry) return null;
+
+  // Expire cache after 24 hours
+  if (Date.now() - entry.timestamp > 24 * 60 * 60 * 1000) {
+    await chrome.storage.local.remove(key);
+    return null;
+  }
+  return entry.data;
+}
+
+async function setCache(key, data) {
+  await chrome.storage.local.set({
+    [key]: {
+      data,
+      timestamp: Date.now()
+    }
+  });
 }
 
 // ============================================================================
-// Cache Helpers
+// AI Bridge & Prompt Logic
 // ============================================================================
-async function getCache() {
-  const r = await chrome.storage.local.get('responseCache');
-  return r.responseCache || {};
+
+function buildAnalysisPrompt(postContent, author) {
+  return [
+    {
+      role: 'system', content: `You are an expert social media analyst. Analyze the following LinkedIn post to determine the best commenting strategy.
+        
+        Output JSON only:
+        {
+            "focalPoint": "The main topic or insight to react to",
+            "recommendedTone": "professional | empathetic | enthusiastic | contrarian",
+            "authorIntent": "educational | promotional | thought-leadership | personal-story"
+        }` },
+    { role: 'user', content: `Author: ${author.name}\nHeadline: ${author.headline}\n\nPost:\n${postContent}` }
+  ];
 }
 
-async function setCache(key, value) {
-  const cache = await getCache();
-  cache[key] = { value, timestamp: Date.now() };
-  await chrome.storage.local.set({ responseCache: cache });
-}
+async function buildGenerationPrompt(postContent, author, analysis, settings) {
+  // Inject User Style if available
+  let styleInstruction = "";
+  if (settings.userStyle) {
+    const s = settings.userStyle;
+    styleInstruction = `
+        Your Unique Voice Profile:
+        - Sentence Length: ${s.avgLength}
+        - Emoji Usage: ${s.emojiFrequency}
+        - Casing: ${s.casing}
+        - Punctuation: ${s.punctuation}
+        - Common Phrases: ${s.commonPhrases.join(', ')}
+        - Structure: ${s.structure}
+        
+        Mimic this style exactly. Do not sound like a generic bot.`;
+  }
 
-// ============================================================================
-// LLM API Integration
-// ============================================================================
+  // Map maxTokens to explicit instructions
+  // 50: Short (~10 words), 100: Medium (~25 words), 150: Long (~40 words), 300: Detailed (~80 words)
+  let lengthInstruction = "Keep it concise.";
+  const tokens = parseInt(settings.maxTokens);
+  if (tokens <= 50) lengthInstruction = "Extremely short. Max 10 words. One punchy sentence.";
+  else if (tokens <= 100) lengthInstruction = "Short and concise. Around 25 words. 1-2 sentences.";
+  else if (tokens <= 150) lengthInstruction = "Moderate length. Around 40 words. Add some depth.";
+  else if (tokens >= 300) lengthInstruction = "Detailed and thoughtful. Around 80 words. Expand on the topic.";
+
+  return [
+    {
+      role: 'system', content: `You are a professional LinkedIn user. Write a comment on this post.
+        
+        Context:
+        - Focal Point: ${analysis.focalPoint}
+        - Tone: ${analysis.recommendedTone} (but adapted to your Voice Profile)
+        - Intent: Engage meaningfully with the author.
+        - Length Limit: ${lengthInstruction}
+        ${styleInstruction}
+        
+        Rules:
+        - No hashtags.
+        - Keep it authentic.
+        - If the user style is 'lowercase', use all lowercase.
+        - If the user style is 'no_punctuation', do not use period at the end.
+        ` },
+    { role: 'user', content: postContent }
+  ];
+}
 
 async function callLLM(messages, settings, retryCount = 0) {
   const { llmProvider, apiKey, model, maxTokens, temperature } = settings;
-  const MAX_RETRIES = 3;
+  const MAX_RETRIES = 2;
 
-  if (!apiKey && llmProvider !== 'nano' && llmProvider !== 'puter') {
-    throw new Error('API key not configured. Please set it in extension options.');
+  // 1. Handle Local Providers
+  if (llmProvider === 'nano') {
+    // For Nano in service worker, we use Offscreen if available, OR reject if this logic is handled in Main World bridge.
+    // Since this function is called by 'generateComment', which is called by message handler...
+    // The content script should actually handle Nano via Bridge for Main World access.
+    // BUT if we are here, it means we might want to fallback or use Offscreen.
+    // For now, let's assume Content Script handles Nano via Bridge, but if it calls us, 
+    // we try to use Offscreen (though window.ai is often main-world only).
+    // Let's return error so Content Script uses Bridge.
+    throw new Error("Use AI Bridge for Nano");
+  }
+
+  // 2. Validate API Key for Cloud
+  if (!apiKey) {
+    throw new Error(`Missing API key for ${llmProvider}. Please check settings.`);
   }
 
   let endpoint, headers, body;
@@ -141,42 +240,30 @@ async function callLLM(messages, settings, retryCount = 0) {
         'Authorization': `Bearer ${apiKey}`
       };
       body = {
-        model,
-        messages,
+        model: model || 'gpt-4o-mini',
+        messages: messages,
         max_tokens: maxTokens,
-        temperature
+        temperature: temperature
       };
       break;
-
     case 'gemini':
-      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model || 'gemini-1.5-flash'}:generateContent?key=${apiKey}`;
       headers = { 'Content-Type': 'application/json' };
       body = {
         contents: messages.map(m => ({
-          role: m.role === 'assistant' ? 'model' : (m.role === 'system' ? 'user' : m.role),
+          role: m.role === 'system' ? 'user' : 'user', // Gemini hack (system mostly unsupported in v1beta simple)
           parts: [{ text: m.content }]
         })),
         generationConfig: {
           maxOutputTokens: maxTokens,
-          temperature
+          temperature: temperature
         }
       };
-      break;
-
-    case 'anthropic':
-      endpoint = 'https://api.anthropic.com/v1/messages';
-      headers = {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01'
-      };
-      body = {
-        model,
-        max_tokens: maxTokens,
-        messages: messages.filter(m => m.role !== 'system'),
-        system: messages.find(m => m.role === 'system')?.content || '',
-        temperature
-      };
+      if (messages[0].role === 'system') {
+        // Better Gemini system instruction handling
+        body.systemInstruction = { parts: [{ text: messages[0].content }] };
+        body.contents.shift();
+      }
       break;
 
     case 'groq':
@@ -186,47 +273,33 @@ async function callLLM(messages, settings, retryCount = 0) {
         'Authorization': `Bearer ${apiKey}`
       };
       body = {
-        model,
-        messages,
+        model: model || 'llama3-70b-8192',
+        messages: messages,
         max_tokens: maxTokens,
-        temperature
+        temperature: temperature
       };
       break;
 
-    case 'nano':
-      // Route to Offscreen Document
-      try {
-        await setupOffscreenDocument('offscreen/offscreen.html');
-
-        // Construct prompt
-        const systemMsg = messages.find(m => m.role === 'system')?.content || '';
-        const userMsg = messages.find(m => m.role === 'user')?.content || '';
-        const fullPrompt = `${systemMsg}\n\n${userMsg}`;
-
-        // Send to offscreen
-        const offscreenResp = await chrome.runtime.sendMessage({
-          type: 'EXECUTE_NANO',
-          prompt: fullPrompt,
-          settings: { temperature: settings.temperature }
-        });
-
-        if (!offscreenResp.success) {
-          throw new Error(offscreenResp.error);
-        }
-        return offscreenResp.result;
-      } catch (e) {
-        throw new Error(`Offscreen AI Error: ${e.message}`);
-      }
-    
-    // Puter is handled in content script via bridge, but if called here we should error or handle
-    case 'puter':
-        throw new Error('Puter.js must be executed from content script via Main World Bridge');
+    case 'anthropic':
+      endpoint = 'https://api.anthropic.com/v1/messages';
+      headers = {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json'
+      };
+      body = {
+        model: model || 'claude-3-haiku-20240307',
+        messages: messages.filter(m => m.role !== 'system'),
+        system: messages.find(m => m.role === 'system')?.content,
+        max_tokens: maxTokens,
+        temperature: temperature
+      };
+      break;
 
     default:
-      throw new Error(`Unsupported LLM provider: ${llmProvider}`);
+      throw new Error(`Unsupported provider: ${llmProvider}`);
   }
 
-  // Fetch Logic (for remote providers)
   try {
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -235,201 +308,75 @@ async function callLLM(messages, settings, retryCount = 0) {
     });
 
     if (!response.ok) {
-        const errorText = await response.text();
-
-        // Handle Rate Limiting (429)
-        if (response.status === 429 && retryCount < MAX_RETRIES) {
-          let waitTime = 5; // Default 5s
-  
-          const retryAfter = response.headers.get('Retry-After');
-          if (retryAfter) waitTime = parseInt(retryAfter, 10) || 5;
-          else {
-            const match = errorText.match(/retry in (\d+(\.\d+)?)s/);
-            if (match) waitTime = parseFloat(match[1]);
-          }
-  
-          console.log(`Rate limit hit (429). Waiting ${waitTime}s to retry...`);
-          await new Promise(r => setTimeout(r, waitTime * 1000 + 1000));
-          return callLLM(messages, settings, retryCount + 1);
-        }
-  
-        throw new Error(`LLM API error: ${response.status} - ${errorText}`);
+      const errText = await response.text();
+      throw new Error(`API Error (${response.status}): ${errText}`);
     }
 
     const data = await response.json();
 
-    // Extract response based on provider
-    switch (llmProvider) {
-      case 'openai':
-      case 'groq': 
-        return data.choices[0].message.content;
-      case 'gemini':
-        return data.candidates[0].content.parts[0].text;
-      case 'anthropic':
-        return data.content[0].text;
-      default:
-        throw new Error('Unknown provider response format');
+    // Parse Response
+    if (llmProvider === 'openai' || llmProvider === 'groq') {
+      return data.choices[0].message.content;
+    } else if (llmProvider === 'gemini') {
+      return data.candidates[0].content.parts[0].text;
+    } else if (llmProvider === 'anthropic') {
+      return data.content[0].text;
     }
-  } catch (err) {
-    if (retryCount < MAX_RETRIES && !err.message.includes('401') && !err.message.includes('403') && llmProvider !== 'nano') {
-        // Exponential backoff for non-auth errors
-        const backoff = 1000 * Math.pow(2, retryCount);
-        await new Promise(r => setTimeout(r, backoff));
-        return callLLM(messages, settings, retryCount + 1);
-      }
-      throw err;
+
+  } catch (error) {
+    if (retryCount < MAX_RETRIES) {
+      console.warn(`Retrying ${llmProvider} call... (${retryCount + 1})`);
+      await new Promise(r => setTimeout(r, 1000 * (retryCount + 1))); // Exponential backoff
+      return callLLM(messages, settings, retryCount + 1);
+    }
+    throw error;
   }
 }
-
-// ============================================================================
-// Comment Generation Prompts
-// ============================================================================
-
-function buildAnalysisPrompt(postContent, authorInfo) {
-  return {
-    role: 'system',
-    content: `You are analyzing a LinkedIn post to understand context for comment generation.
-
-Analyze the following post and return a JSON object with:
-- focalPoint: The main topic or argument (1 sentence)
-- authorIntent: What the author wants (inform, inspire, sell, vent, celebrate)
-- recommendedTone: Best tone for reply (supportive, curious, professional, casual, contrarian)
-- keyTopics: Array of 2-3 key themes
-- riskLevel: low/medium/high (based on sensitivity of topic)
-
-POST BY ${authorInfo.name} (${authorInfo.headline}):
-${postContent}
-
-Respond ONLY with valid JSON, no markdown.`
-  };
-}
-
-function buildGenerationPrompt(analysis, userStyle, constraints, vibe) {
-  const wordLimit = constraints?.wordLimit || 20;
-
-  const vibeInstructions = vibe
-    ? `\nGOAL: ${vibe.label} - ${vibe.prompt}\n`
-    : '';
-
-  // If vibe is set, override riskiness or tone constraints to match user intent
-  const constraintInstructions = vibe
-    ? `IGNORE standard tone. ADOPT the goal above.`
-    : '';
-
-  return {
-    role: 'system',
-    content: `You are generating an authentic LinkedIn comment that sounds like the user wrote it.
-
-CONTEXT:
-${JSON.stringify(analysis, null, 2)}
-
-USER IDENTITY (CLONE THESE TRAITS):
-- Length Preference: ${userStyle?.avgLength || 'medium'}
-- Emoji Frequency: ${userStyle?.emojiFrequency || 'rare'}
-- Punctuation Style: ${userStyle?.punctuation || 'standard'} (If "relaxed", avoid periods at end of lines. If "excited", use exclamation marks!)
-- Casing: ${userStyle?.casing || 'standard'} (If "lowercase", DO NOT capitalize sentences)
-- Directness: ${userStyle?.structure === 'list_heavy' ? 'Prefers bullet points' : 'Prefers sentences'}
-- Common Phrases (Use casually if fits): ${userStyle?.commonPhrases?.join(', ') || 'N/A'}
-
-HARD CONSTRAINTS:
-1. NEVER use generic bot comments ("Great post", "Thanks for sharing", "Love this", "So true").
-2. NEVER start with "Wow" or "Amazing".
-3. MATCH THE CASING AND PUNCTUATION STYLE EXACTLY.
-4. Length: MAX ${wordLimit} WORDS
-
-Generate ONE comment. Return ONLY the comment text. Keep it under ${wordLimit} words. No quotes.
-
-${constraintInstructions}
-
-${vibeInstructions}`
-  };
-}
-
-// ============================================================================
-// Main Comment Generation
-// ============================================================================
 
 async function generateComment(postContent, authorName, vibe) {
   const settings = await getSettings();
 
-  // 1. Check rate limit
+  // Rate Limit Check
   const rateLimit = await checkRateLimit();
   if (!rateLimit.allowed) {
-    return {
-      success: false,
-      error: `Rate limit reached. ${rateLimit.remaining} comments remaining. Resets in ${rateLimit.resetIn} minutes.`
-    };
+    return { success: false, error: "Rate limit exceeded. Try again in an hour." };
   }
 
-  // 2. Check Cache
-  // Simple hash of content + author
-  const cacheKey = `c_${authorName}_${postContent.slice(0, 50).replace(/\W/g, '')}`;
-  const cache = await getCache();
-  const cachedFn = cache[cacheKey];
-
-  if (cachedFn && (Date.now() - cachedFn.timestamp < 24 * 60 * 60 * 1000)) {
-     // If cached, we might need to verify if vibe matches, but simpler to just return
-     // if the cache key is simple. But if vibe changed, we might want new comment.
-     // For now, let's assume cache is robust enough or we accept cache hits.
-     // Actually, if Vibe is set, specific generation is requested, so maybe skip cache if vibe is present?
-     // Let's skip cache if Vibe is active.
-     if (!vibe) {
-         console.log('Returning cached comment');
-         return cachedFn.value;
-     }
-  }
+  // Cache Check
+  const cacheKey = `comment_${postContent.slice(0, 50)}_${settings.llmProvider}`;
+  const cached = await getCache(cacheKey);
+  if (cached) return cached;
 
   try {
-    // Stage 1: Analyze post
-    const analysisPrompt = buildAnalysisPrompt(postContent, { name: authorName, headline: 'LinkedIn Member' });
-    let analysis;
-    
-    // Nano might struggle with complex analysis or return non-JSON.
-    // If Nano, we might skip analysis or simplify.
-    // But let's try calling it.
+    // Stage 1: Analyze
+    // Use smaller model or just first call
+    let analysis = { focalPoint: "General Topic", recommendedTone: vibe || "professional" }; // Default
     try {
-        const analysisResponse = await callLLM([
-        analysisPrompt,
-        { role: 'user', content: 'Analyze this post.' }
-        ], settings);
-    
-        try {
-            const cleanJson = analysisResponse.replace(/```json|```/g, '').trim();
-            analysis = JSON.parse(cleanJson);
-        } catch {
-            analysis = { focalPoint: postContent.slice(0, 100), recommendedTone: 'professional' };
+      if (settings.llmProvider !== 'nano') {
+        const analysisPrompt = buildAnalysisPrompt(postContent, { name: authorName, headline: 'Member' });
+        const analysisRaw = await callLLM(analysisPrompt, { ...settings, maxTokens: 150 });
+        const jsonMatch = analysisRaw.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysis = JSON.parse(jsonMatch[0]);
         }
+      }
     } catch (e) {
-        // Fallback if analysis fails (e.g. Nano error)
-         console.warn("Analysis failed, using fallback", e);
-         analysis = { focalPoint: postContent.slice(0, 100), recommendedTone: 'professional' };
+      console.warn("Analysis stage failed, using default", e);
     }
 
-    // Stage 2: Generate comment
-    const userStyle = await chrome.storage.local.get('userStyle');
+    // Stage 2: Generate
+    const promptContent = `Write a ${vibe || analysis.recommendedTone} comment about: ${analysis.focalPoint || postContent.slice(0, 200)}...`;
 
-    // Derive word limit
-    let wordLimit = 20;
-    if (settings.maxTokens && settings.maxTokens <= 200) {
-      wordLimit = Math.floor(settings.maxTokens / 5);
-    }
+    // For cloud providers, we use the sophisticated prompt builder
+    const messages = await buildGenerationPrompt(postContent, { name: authorName }, analysis, settings);
 
-    const generationPrompt = buildGenerationPrompt(analysis, userStyle.userStyle, { wordLimit }, vibe);
-
-    const promptContent = vibe
-      ? `Generate a comment for this post about: ${analysis.focalPoint} with VIBE: ${vibe.label}`
-      : `Generate a comment for this post about: ${analysis.focalPoint}`;
-
-    const comment = await callLLM([
-      generationPrompt,
-      { role: 'user', content: promptContent }
-    ], settings);
+    const comment = await callLLM(messages, settings);
 
     const finalResponse = {
-        success: true,
-        comment: comment.trim(),
-        analysis: analysis,
-        rateLimit: await checkRateLimit()
+      success: true,
+      comment: comment.trim(),
+      analysis: analysis,
+      rateLimit: await checkRateLimit()
     };
 
     // 4. Save to Cache and History
@@ -447,15 +394,75 @@ async function generateComment(postContent, authorName, vibe) {
 }
 
 // ============================================================================
+// Silent Learning Logic
+// ============================================================================
+
+async function handleLearningInteraction(interaction) {
+  try {
+    // 1. Validate Interaction
+    if (!interaction.finalText || interaction.finalText.length < 5) return;
+
+    // 2. Get Learning Corpus
+    const storage = await chrome.storage.local.get(['learningCorpus']);
+    let corpus = storage.learningCorpus || [];
+
+    // 3. Add to Corpus (FIFO if full)
+    corpus.push(interaction.finalText);
+    if (corpus.length > LEARNING_CONFIG.maxCorpusSize) {
+      corpus.shift(); // Remove oldest
+    }
+
+    // 4. Check Trigger Condition (Batch Size)
+    // We track 'new comments since last analysis' in a separate counter ideally, 
+    // or just re-analyze if (length % batchSize === 0)
+    let needsAnalysis = (corpus.length % LEARNING_CONFIG.batchSize) === 0;
+
+    await chrome.storage.local.set({ learningCorpus: corpus });
+
+    if (needsAnalysis) {
+      console.log("Silent Learning: Triggering Style Analysis...");
+      await analyzeUserStyle(corpus);
+    }
+
+  } catch (e) {
+    console.error("Silent Learning Error:", e);
+  }
+}
+
+async function analyzeUserStyle(corpusArray) {
+  try {
+    const fullText = corpusArray.join('\n');
+
+    // Use the imported StyleEngine
+    const engine = new self.StyleEngine();
+    const newProfile = engine.analyze(fullText);
+
+    // Merge with existing setting (Update userStyle)
+    const settings = await getSettings();
+    settings.userStyle = newProfile;
+
+    await saveSettings(settings);
+    console.log("Silent Learning: Style Profile Updated!", newProfile);
+
+  } catch (e) {
+    console.error("Style Analysis Failed:", e);
+  }
+}
+
+// ============================================================================
 // Message Handler
 // ============================================================================
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GENERATE_COMMENT') {
-    generateComment(message.postContent, message.authorName, message.vibe)
+    // Handle both legacy (flat) and new (nested postData) message formats
+    const content = message.postData?.content || message.postContent;
+    const author = message.postData?.authorName || message.authorName;
+
+    generateComment(content, author, message.vibe)
       .then(sendResponse)
       .catch(err => sendResponse({ success: false, error: err.message }));
-    return true; // Keep channel open for async response
+    return true;
   }
 
   if (message.type === 'GET_SETTINGS') {
@@ -474,9 +481,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     checkRateLimit().then(sendResponse);
     return true;
   }
-  
-  // Forwarding executing nano if needed by other parts? 
-  // But generateComment handles it internally now.
+
+  // NEW: Learning Signal
+  if (message.type === 'LEARN_FROM_INTERACTION') {
+    handleLearningInteraction(message.payload);
+    // No response needed, fire and forget
+    return false;
+  }
 });
 
 // ============================================================================

@@ -431,15 +431,6 @@ async function generateAndDisplayComment(postElement, vibe = null) {
     }
 
     try {
-<<<<<<< Updated upstream
-        // Send to background for LLM generation
-        const response = await chrome.runtime.sendMessage({
-            type: 'GENERATE_COMMENT',
-            postContent: postData.content,
-            authorName: postData.authorName,
-            vibe: vibe // Pass vibe context
-        });
-=======
         // Fetch settings first to decide provider
         const settings = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
 
@@ -492,12 +483,20 @@ async function generateAndDisplayComment(postElement, vibe = null) {
 
                 window.addEventListener('message', handler);
 
+                // Map maxTokens to explicit instructions (Match Service Worker logic)
+                const tokens = parseInt(settings.maxTokens) || 50;
+                let lengthInstruction = "Keep it concise.";
+                if (tokens <= 50) lengthInstruction = "Extremely short. Max 10 words. One punchy sentence.";
+                else if (tokens <= 100) lengthInstruction = "Short and concise. Around 25 words. 1-2 sentences.";
+                else if (tokens <= 150) lengthInstruction = "Moderate length. Around 40 words. Add some depth.";
+                else if (tokens >= 300) lengthInstruction = "Detailed and thoughtful. Around 80 words. Expand on the topic.";
+
                 // Construct Prompt
                 const fullPrompt = `You are a LinkedIn comment assistant.
 POST:
 ${postData.content.slice(0, 1000)}
 
-Reply to this post professionally. Be concise (1 sentence). No emojis at start.`;
+Reply to this post professionally. ${lengthInstruction} No emojis at start.`;
 
                 window.postMessage({
                     source: 'LCC_CONTENT_SCRIPT',
@@ -519,10 +518,11 @@ Reply to this post professionally. Be concise (1 sentence). No emojis at start.`
             // -----------------------------------------------------------
             response = await chrome.runtime.sendMessage({
                 type: 'GENERATE_COMMENT',
-                postData
+                postData,
+                // Add vibe context if needed by background
+                vibe
             });
         }
->>>>>>> Stashed changes
 
         if (response.success) {
             statusEl.style.display = 'none';
@@ -553,14 +553,36 @@ Reply to this post professionally. Be concise (1 sentence). No emojis at start.`
 // Action Handlers
 // ============================================================================
 
+function sendLearningSignal(finalText, actionType) {
+    if (!finalText || finalText.length < 5) return;
+
+    try {
+        chrome.runtime.sendMessage({
+            type: 'LEARN_FROM_INTERACTION',
+            payload: {
+                finalText,
+                action: actionType,
+                timestamp: Date.now()
+            }
+        });
+    } catch (e) {
+        console.warn('Learning signal failed', e);
+    }
+}
+
 function handleCopy() {
     const previewEl = state.currentPanel?.querySelector('.lcc-comment-preview');
     if (previewEl) {
-        navigator.clipboard.writeText(previewEl.textContent).then(() => {
+        const text = previewEl.textContent;
+        navigator.clipboard.writeText(text).then(() => {
             const copyBtn = state.currentPanel.querySelector('.lcc-copy');
             const originalText = copyBtn.innerHTML;
             copyBtn.innerHTML = '✓ Copied!';
             copyBtn.style.background = '#28a745';
+
+            // Trigger Learning Signal
+            sendLearningSignal(text, 'copy');
+
             setTimeout(() => {
                 copyBtn.innerHTML = originalText;
                 copyBtn.style.background = '';
@@ -679,6 +701,9 @@ async function handleInsert(postElement) {
         // Feedback - Success
         insertBtn.innerHTML = '✓ Ready!';
         insertBtn.style.background = '#28a745';
+
+        // Trigger Learning Signal
+        sendLearningSignal(commentText, 'insert');
 
         // Hide panel after a moment
         setTimeout(() => {
