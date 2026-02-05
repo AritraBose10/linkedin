@@ -18,12 +18,18 @@ async function checkStatus() {
 
         if (!settings.apiKey) {
             elements.statusValue.textContent = 'Not configured';
-            elements.statusValue.className = 'status-value disconnected';
-            elements.apiAlert.classList.add('show');
+            // Tailwind: Red text, red bg
+            elements.statusValue.classList.remove('text-green-500', 'bg-green-50', 'dark:text-green-400', 'dark:bg-green-900/20');
+            elements.statusValue.classList.add('text-red-500', 'bg-red-50', 'dark:text-red-400', 'dark:bg-red-900/20');
+
+            elements.apiAlert.classList.remove('hidden');
         } else {
             elements.statusValue.textContent = 'Ready';
-            elements.statusValue.className = 'status-value connected';
-            elements.apiAlert.classList.remove('show');
+            // Tailwind: Green text, green bg
+            elements.statusValue.classList.remove('text-red-500', 'bg-red-50', 'dark:text-red-400', 'dark:bg-red-900/20');
+            elements.statusValue.classList.add('text-green-500', 'bg-green-50', 'dark:text-green-400', 'dark:bg-green-900/20');
+
+            elements.apiAlert.classList.add('hidden');
         }
 
         // Check rate limit
@@ -38,7 +44,8 @@ async function checkStatus() {
     } catch (error) {
         console.error('Error checking status:', error);
         elements.statusValue.textContent = 'Error';
-        elements.statusValue.className = 'status-value disconnected';
+        elements.statusValue.classList.remove('text-green-500', 'bg-green-50');
+        elements.statusValue.classList.add('text-red-500', 'bg-red-50');
     }
 }
 

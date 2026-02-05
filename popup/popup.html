@@ -2,154 +2,274 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LinkedIn Comment Copilot</title>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Comment Copilot - Home</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
+        rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#0073b1", // LinkedIn Blue-ish
+                        "background-light": "#F9FAFB",
+                        "background-dark": "#111827",
+                        "card-light": "#FFFFFF",
+                        "card-dark": "#1F2937",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        sans: ["Inter", "sans-serif"],
+                    },
+                    borderRadius: {
+                        DEFAULT: "12px",
+                        "xl": "16px",
+                        "2xl": "20px",
+                    },
+                    boxShadow: {
+                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
+                        'glow': '0 0 15px rgba(0, 115, 177, 0.3)',
+                    }
+                },
+            },
+        };
+    </script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            width: 320px;
-            background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+            -webkit-tap-highlight-color: transparent;
         }
 
-        .header {
-            background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
-            color: white;
-            padding: 20px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 4px;
-        }
-
-        .header p {
-            font-size: 12px;
-            opacity: 0.9;
-        }
-
-        .content {
-            padding: 20px;
-        }
-
-        .status-card {
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-            margin-bottom: 16px;
-        }
-
-        .status-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 0;
-        }
-
-        .status-row:not(:last-child) {
-            border-bottom: 1px solid #f1f3f5;
-        }
-
-        .status-label {
-            font-size: 13px;
-            color: #6c757d;
-        }
-
-        .status-value {
-            font-size: 13px;
-            font-weight: 600;
-            color: #212529;
-        }
-
-        .status-value.connected {
-            color: #28a745;
-        }
-
-        .status-value.disconnected {
-            color: #dc3545;
-        }
-
-        .quick-actions {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .btn {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 12px 16px;
-            font-size: 13px;
-            font-weight: 600;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .btn-primary {
-            background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
-            color: white;
-        }
-
-        .btn-primary:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(0, 119, 181, 0.3);
-        }
-
-        .btn-secondary {
-            background: #f8f9fa;
-            color: #495057;
-            border: 1px solid #dee2e6;
-        }
-
-        .btn-secondary:hover {
-            background: #e9ecef;
-        }
-
-        .footer {
-            padding: 12px 20px;
-            background: #f8f9fa;
-            border-top: 1px solid #e9ecef;
-            text-align: center;
-        }
-
-        .footer a {
-            font-size: 12px;
-            color: #6c757d;
-            text-decoration: none;
-        }
-
-        .footer a:hover {
-            color: #0077b5;
-        }
-
-        .alert {
-            padding: 12px 16px;
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            border-radius: 10px;
-            font-size: 12px;
-            color: #856404;
-            margin-bottom: 16px;
+        .hidden {
             display: none;
         }
-
-        .alert.show {
-            display: block;
+    </style>
+    <style>
+        body {
+            min-height: max(500px, 100dvh);
+            /* Adjusted for popup size */
+            width: 350px;
+            /* Enforce width for extension popup */
         }
     </style>
+</head>
+
+<body
+    class="bg-background-light dark:bg-background-dark font-sans text-gray-800 dark:text-gray-200 min-h-screen flex flex-col justify-between transition-colors duration-300">
+    <header
+        class="bg-gradient-to-b from-[#006097] to-[#004b7c] pt-14 pb-10 px-6 rounded-b-[2rem] shadow-lg relative z-10">
+        <div class="flex flex-col items-center justify-center text-white">
+            <div class="flex items-center gap-2 mb-1">
+                <span class="material-icons-round text-2xl opacity-90">chat_bubble</span>
+                <h1 class="text-xl font-bold tracking-tight">Comment Copilot</h1>
+            </div>
+            <p class="text-sm font-medium text-blue-100 opacity-80">AI-powered LinkedIn comments</p>
+        </div>
+    </header>
+    <main class="flex-grow px-6 -mt-6 relative z-20 w-full max-w-md mx-auto">
+
+        <!-- Hidden alert container for JS compatibility -->
+        <div id="apiAlert"
+            class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 rounded shadow-sm"
+            role="alert">
+            <p class="font-bold">Warning</p>
+            <p>API Key missing. Please configure settings.</p>
+        </div>
+
+        <div
+            class="bg-card-light dark:bg-card-dark rounded-2xl shadow-soft p-2 mb-8 border border-gray-100 dark:border-gray-700 backdrop-blur-sm">
+            <div class="divide-y divide-gray-50 dark:divide-gray-700">
+                <div class="flex justify-between items-center p-5">
+                    <span class="text-gray-500 dark:text-gray-400 font-medium text-sm">Status</span>
+                    <span id="statusValue"
+                        class="text-green-500 dark:text-green-400 font-bold text-sm bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full">Checking...</span>
+                </div>
+                <div class="flex justify-between items-center p-5">
+                    <span class="text-gray-500 dark:text-gray-400 font-medium text-sm">Suggestions Today</span>
+                    <span id="suggestionsValue"
+                        class="text-gray-900 dark:text-white font-bold text-base font-display">-</span>
+                </div>
+                <div class="flex justify-between items-center p-5">
+                    <span class="text-gray-500 dark:text-gray-400 font-medium text-sm">Remaining</span>
+                    <span id="remainingValue"
+                        class="text-gray-900 dark:text-white font-bold text-base font-display">-</span>
+                </div>
+            </div>
+        </div>
+        <div class="space-y-4">
+            <button id="goToLinkedIn"
+                class="w-full group bg-primary hover:bg-[#005c8e] text-white font-semibold py-4 px-6 rounded-xl shadow-lg hover:shadow-glow transform transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-3">
+                <span class="text-xl group-hover:animate-pulse">🚀</span>
+                <span>Go to LinkedIn Feed</span>
+            </button>
+            <button id="openSettings"
+                class="w-full bg-white dark:bg-card-dark border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-semibold py-4 px-6 rounded-xl shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 transform transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2">
+                <span class="material-icons-round text-gray-400 dark:text-gray-400 text-xl">settings</span>
+                <span>Settings</span>
+            </button>
+        </div>
+    </main>
+    <footer class="py-8 text-center px-6">
+        <div class="flex flex-col items-center justify-center gap-2">
+            <div class="h-1 w-12 bg-gray-200 dark:bg-gray-700 rounded-full mb-2"></div>
+            <p class="text-xs text-gray-400 dark:text-gray-500 font-medium tracking-wide">
+                v1.0.0 • <a class="hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
+                    href="#">View on GitHub</a>
+            </p>
+        </div>
+    </footer>
+    <script src="popup.js"></script>
+</body>
+
+</html>
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        width: 320px;
+        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
+    }
+
+    .header {
+        background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
+        color: white;
+        padding: 20px;
+        text-align: center;
+    }
+
+    .header h1 {
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .header p {
+        font-size: 12px;
+        opacity: 0.9;
+    }
+
+    .content {
+        padding: 20px;
+    }
+
+    .status-card {
+        background: white;
+        border-radius: 12px;
+        padding: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+        margin-bottom: 16px;
+    }
+
+    .status-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+    }
+
+    .status-row:not(:last-child) {
+        border-bottom: 1px solid #f1f3f5;
+    }
+
+    .status-label {
+        font-size: 13px;
+        color: #6c757d;
+    }
+
+    .status-value {
+        font-size: 13px;
+        font-weight: 600;
+        color: #212529;
+    }
+
+    .status-value.connected {
+        color: #28a745;
+    }
+
+    .status-value.disconnected {
+        color: #dc3545;
+    }
+
+    .quick-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 12px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
+        color: white;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 119, 181, 0.3);
+    }
+
+    .btn-secondary {
+        background: #f8f9fa;
+        color: #495057;
+        border: 1px solid #dee2e6;
+    }
+
+    .btn-secondary:hover {
+        background: #e9ecef;
+    }
+
+    .footer {
+        padding: 12px 20px;
+        background: #f8f9fa;
+        border-top: 1px solid #e9ecef;
+        text-align: center;
+    }
+
+    .footer a {
+        font-size: 12px;
+        color: #6c757d;
+        text-decoration: none;
+    }
+
+    .footer a:hover {
+        color: #0077b5;
+    }
+
+    .alert {
+        padding: 12px 16px;
+        background: #fff3cd;
+        border: 1px solid #ffc107;
+        border-radius: 10px;
+        font-size: 12px;
+        color: #856404;
+        margin-bottom: 16px;
+        display: none;
+    }
+
+    .alert.show {
+        display: block;
+    }
+</style>
 </head>
 
 <body>
