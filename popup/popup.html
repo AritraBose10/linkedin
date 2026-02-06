@@ -5,39 +5,10 @@
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>Comment Copilot - Home</title>
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <link href="dist.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
         rel="stylesheet" />
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
-    <script>
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        primary: "#0073b1", // LinkedIn Blue-ish
-                        "background-light": "#F9FAFB",
-                        "background-dark": "#111827",
-                        "card-light": "#FFFFFF",
-                        "card-dark": "#1F2937",
-                    },
-                    fontFamily: {
-                        display: ["Inter", "sans-serif"],
-                        sans: ["Inter", "sans-serif"],
-                    },
-                    borderRadius: {
-                        DEFAULT: "12px",
-                        "xl": "16px",
-                        "2xl": "20px",
-                    },
-                    boxShadow: {
-                        'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
-                        'glow': '0 0 15px rgba(0, 115, 177, 0.3)',
-                    }
-                },
-            },
-        };
-    </script>
     <style>
         body {
             -webkit-tap-highlight-color: transparent;
@@ -50,9 +21,7 @@
     <style>
         body {
             min-height: max(500px, 100dvh);
-            /* Adjusted for popup size */
             width: 350px;
-            /* Enforce width for extension popup */
         }
     </style>
 </head>
@@ -70,7 +39,6 @@
         </div>
     </header>
     <main class="flex-grow px-6 -mt-6 relative z-20 w-full max-w-md mx-auto">
-
         <!-- Hidden alert container for JS compatibility -->
         <div id="apiAlert"
             class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 rounded shadow-sm"
@@ -78,7 +46,6 @@
             <p class="font-bold">Warning</p>
             <p>API Key missing. Please configure settings.</p>
         </div>
-
         <div
             class="bg-card-light dark:bg-card-dark rounded-2xl shadow-soft p-2 mb-8 border border-gray-100 dark:border-gray-700 backdrop-blur-sm">
             <div class="divide-y divide-gray-50 dark:divide-gray-700">
@@ -116,202 +83,11 @@
         <div class="flex flex-col items-center justify-center gap-2">
             <div class="h-1 w-12 bg-gray-200 dark:bg-gray-700 rounded-full mb-2"></div>
             <p class="text-xs text-gray-400 dark:text-gray-500 font-medium tracking-wide">
-                v1.0.0 • <a class="hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
+                v1.1.0 • <a class="hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
                     href="#">View on GitHub</a>
             </p>
         </div>
     </footer>
-    <script src="popup.js"></script>
-</body>
-
-</html>
-<style>
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    body {
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        width: 320px;
-        background: linear-gradient(145deg, #ffffff 0%, #f8f9fa 100%);
-    }
-
-    .header {
-        background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
-        color: white;
-        padding: 20px;
-        text-align: center;
-    }
-
-    .header h1 {
-        font-size: 16px;
-        font-weight: 600;
-        margin-bottom: 4px;
-    }
-
-    .header p {
-        font-size: 12px;
-        opacity: 0.9;
-    }
-
-    .content {
-        padding: 20px;
-    }
-
-    .status-card {
-        background: white;
-        border-radius: 12px;
-        padding: 16px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-        margin-bottom: 16px;
-    }
-
-    .status-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 8px 0;
-    }
-
-    .status-row:not(:last-child) {
-        border-bottom: 1px solid #f1f3f5;
-    }
-
-    .status-label {
-        font-size: 13px;
-        color: #6c757d;
-    }
-
-    .status-value {
-        font-size: 13px;
-        font-weight: 600;
-        color: #212529;
-    }
-
-    .status-value.connected {
-        color: #28a745;
-    }
-
-    .status-value.disconnected {
-        color: #dc3545;
-    }
-
-    .quick-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-
-    .btn {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
-        padding: 12px 16px;
-        font-size: 13px;
-        font-weight: 600;
-        border: none;
-        border-radius: 10px;
-        cursor: pointer;
-        transition: all 0.2s ease;
-    }
-
-    .btn-primary {
-        background: linear-gradient(135deg, #0077b5 0%, #005582 100%);
-        color: white;
-    }
-
-    .btn-primary:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(0, 119, 181, 0.3);
-    }
-
-    .btn-secondary {
-        background: #f8f9fa;
-        color: #495057;
-        border: 1px solid #dee2e6;
-    }
-
-    .btn-secondary:hover {
-        background: #e9ecef;
-    }
-
-    .footer {
-        padding: 12px 20px;
-        background: #f8f9fa;
-        border-top: 1px solid #e9ecef;
-        text-align: center;
-    }
-
-    .footer a {
-        font-size: 12px;
-        color: #6c757d;
-        text-decoration: none;
-    }
-
-    .footer a:hover {
-        color: #0077b5;
-    }
-
-    .alert {
-        padding: 12px 16px;
-        background: #fff3cd;
-        border: 1px solid #ffc107;
-        border-radius: 10px;
-        font-size: 12px;
-        color: #856404;
-        margin-bottom: 16px;
-        display: none;
-    }
-
-    .alert.show {
-        display: block;
-    }
-</style>
-</head>
-
-<body>
-    <div class="header">
-        <h1>💬 Comment Copilot</h1>
-        <p>AI-powered LinkedIn comments</p>
-    </div>
-
-    <div class="content">
-        <div class="alert" id="apiAlert">
-            ⚠️ API key not configured. Click Settings to add your key.
-        </div>
-
-        <div class="status-card">
-            <div class="status-row">
-                <span class="status-label">Status</span>
-                <span class="status-value" id="statusValue">Checking...</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Suggestions Today</span>
-                <span class="status-value" id="suggestionsValue">-</span>
-            </div>
-            <div class="status-row">
-                <span class="status-label">Remaining</span>
-                <span class="status-value" id="remainingValue">-</span>
-            </div>
-        </div>
-
-        <div class="quick-actions">
-            <button class="btn btn-primary" id="goToLinkedIn">
-                <span>🚀</span> Go to LinkedIn Feed
-            </button>
-            <button class="btn btn-secondary" id="openSettings">
-                <span>⚙️</span> Settings
-            </button>
-        </div>
-    </div>
-
-    <div class="footer">
-        <a href="https://github.com/your-repo" target="_blank">v1.0.0 • View on GitHub</a>
-    </div>
-
     <script src="popup.js"></script>
 </body>
 
