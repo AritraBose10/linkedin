@@ -25,14 +25,15 @@ const CONFIG = {
 
 // LinkedIn selectors (may need updates as LinkedIn changes their UI)
 // LinkedIn selectors (Updated for 2026 robustness)
-// LinkedIn selectors (Updated for 2026 robustness)
+// LinkedIn selectors (Updated for 2026 robustness - AGGRESSIVE MODE)
 const SELECTORS = {
-    feedPost: '[data-urn*="activity"], .feed-shared-update-v2',
-    postContent: '.feed-shared-update-v2__description, .feed-shared-inline-show-more-text, .update-components-text',
-    postAuthor: '.update-components-actor__name, .feed-shared-actor__name, .update-components-actor__title',
+    // Try everything that looks like a container
+    feedPost: '[data-urn]', // Extremely broad: Catch anything with a URN
+    postContent: '.feed-shared-update-v2__description, .feed-shared-inline-show-more-text, .update-components-text, span.break-words',
+    postAuthor: '.update-components-actor__name, .feed-shared-actor__name, .update-components-actor__title, a.app-aware-link > span > span:first-child',
     postAuthorHeadline: '.update-components-actor__description, .feed-shared-actor__description',
-    commentBox: '.comments-comment-box__form, .comments-comment-box',
-    postContainer: '.feed-shared-update-v2, .occludable-update'
+    commentBox: '.comments-comment-box__form, .comments-comment-box, form',
+    postContainer: '.feed-shared-update-v2, .occludable-update, div[data-id]'
 };
 
 // ============================================================================
