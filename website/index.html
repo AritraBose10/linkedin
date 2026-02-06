@@ -931,13 +931,43 @@
     </div>
     <script>
         // Add to Chrome Logic
-        document.querySelectorAll('.add-to-chrome-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                // Simulate Chrome Web Store Install
-                console.log("Redirecting to Chrome Web Store...");
-                // In production, this would be:
-                // window.open('https://chrome.google.com/webstore/detail/YOUR_EXTENSION_ID', '_blank');
-                alert("Redirecting to Chrome Web Store...\n(This is a blueprint placeholder)");
+        document.querySelectorAll('.add-to-chrome').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                // Direct Download
+                const link = document.createElement('a');
+                link.href = 'downloads/linkedin-copilot-v1.2.0.zip';
+                link.download = 'linkedin-copilot-v1.2.0.zip';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+
+                // Show Instructions Modal
+                const modalHtml = `
+            <div id="install-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-4">
+              <div class="bg-gray-900 border border-gray-700 rounded-xl max-w-lg w-full p-6 shadow-2xl relative">
+                <button onclick="document.getElementById('install-modal').remove()" class="absolute top-4 right-4 text-gray-400 hover:text-white">
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+                <h3 class="text-2xl font-bold text-white mb-4">How to Install (Developer Mode)</h3>
+                <p class="text-gray-300 mb-4">Since we are bypassing the Web Store, you need to install manually:</p>
+                <ol class="list-decimal list-inside space-y-3 text-gray-400 mb-6">
+                  <li>Unzip the downloaded <strong>linkedin-copilot.zip</strong> file.</li>
+                  <li>Open Chrome and go to <code class="bg-gray-800 px-1 rounded text-blue-400">chrome://extensions</code></li>
+                  <li>Toggle <strong>Developer mode</strong> in the top right.</li>
+                  <li>Click <strong>Load unpacked</strong> button (top left).</li>
+                  <li>Select the unzipped folder.</li>
+                </ol>
+                <div class="bg-blue-900/30 border border-blue-500/30 rounded-lg p-4">
+                  <p class="text-sm text-blue-200">✅ <strong>Safe & Secure:</strong> This installs the extension directly from the source code without Google's delay.</p>
+                </div>
+                <div class="mt-6 text-center">
+                   <button onclick="document.getElementById('install-modal').remove()" class="px-6 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold rounded-lg hover:from-blue-500 hover:to-cyan-400 transition-all shadow-[0_0_20px_rgba(37,99,235,0.5)]">Got it!</button>
+                </div>
+              </div>
+            </div>
+          `;
+                document.body.insertAdjacentHTML('beforeend', modalHtml);
             });
         });
 
