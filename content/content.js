@@ -25,15 +25,15 @@ const CONFIG = {
 
 // LinkedIn selectors (may need updates as LinkedIn changes their UI)
 // LinkedIn selectors (Updated for 2026 robustness)
-// LinkedIn selectors (Updated for 2026 robustness - AGGRESSIVE MODE)
+// LinkedIn selectors (Updated for 2026 robustness - NUCLEAR MODE)
 const SELECTORS = {
     // Try everything that looks like a container
-    feedPost: '[data-urn]', // Extremely broad: Catch anything with a URN
+    feedPost: '[data-urn], .artdeco-card, .feed-shared-update-v2', // Nuclear: Catch any card
     postContent: '.feed-shared-update-v2__description, .feed-shared-inline-show-more-text, .update-components-text, span.break-words',
     postAuthor: '.update-components-actor__name, .feed-shared-actor__name, .update-components-actor__title, a.app-aware-link > span > span:first-child',
     postAuthorHeadline: '.update-components-actor__description, .feed-shared-actor__description',
     commentBox: '.comments-comment-box__form, .comments-comment-box, form',
-    postContainer: '.feed-shared-update-v2, .occludable-update, div[data-id]'
+    postContainer: '.feed-shared-update-v2, .occludable-update, div[data-id], .artdeco-card'
 };
 
 // ============================================================================
@@ -780,101 +780,130 @@ function delay(ms) {
 // Debug Badge (For User Feedback)
 // ============================================================================
 
+// ============================================================================
+// Debug Badge & Safe Initialization (v1.2.4 Nuclear)
+// ============================================================================
+
 function createDebugBadge() {
+    if (document.getElementById('lcc-debug-badge')) return;
+
     const badge = document.createElement('div');
     badge.id = 'lcc-debug-badge';
     badge.style.cssText = `
         position: fixed;
         bottom: 20px;
-        left: 20px; // Left side to avoid chat windows
+        left: 20px;
         padding: 8px 12px;
-        background: #333;
+        background: #222;
         color: white;
-        border-radius: 20px;
+        border-radius: 8px;
         font-family: monospace;
-        font-size: 12px;
+        font-size: 11px;
         z-index: 2147483647;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-        pointer-events: none;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.5);
         display: flex;
-        align-items: center;
-        gap: 8px;
+        flex-direction: column;
+        gap: 6px;
+        pointer-events: auto;
     `;
     badge.innerHTML = `
-        <span style="width: 10px; height: 10px; background: red; border-radius: 50%; display: inline-block;" id="lcc-debug-dot"></span>
-        <span id="lcc-debug-text">LCC: Loading...</span>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <span style="width: 10px; height: 10px; background: red; border-radius: 50%;" id="lcc-debug-dot"></span>
+            <span id="lcc-debug-text">Loaded v1.2.4</span>
+        </div>
+        <button id="lcc-force-btn" style="
+            background: #d9534f; border: 1px solid #d43f3a; color: white; 
+            padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;
+        ">FORCE INJECT</button>
     `;
     document.body.appendChild(badge);
+
+    // Manual Trigger
+    document.getElementById('lcc-force-btn').addEventListener('click', () => {
+        updateDebug('info', 'Forcing Injection...');
+
+        // Use Nuclear Selector for force inject
+        const nuclearPosts = document.querySelectorAll('.artdeco-card, [data-urn], .feed-shared-update-v2');
+
+        if (nuclearPosts.length === 0) {
+            alert('LCC: Complete failure. No cards found at all.');
+        } else {
+            let count = 0;
+            nuclearPosts.forEach(p => {
+                injectButton(p);
+                count++;
+            });
+            alert(`LCC: Force injected into ${count} elements.`);
+            updateDebug('success', `Forced: ${count} Elements`);
+        }
+    });
 }
 
 function updateDebug(status, message) {
     const dot = document.getElementById('lcc-debug-dot');
     const text = document.getElementById('lcc-debug-text');
+
     if (!dot || !text) return;
 
-    text.textContent = `LCC: ${message}`;
+    text.textContent = message;
     if (status === 'error') dot.style.background = 'red';
     if (status === 'warning') dot.style.background = 'orange';
     if (status === 'success') dot.style.background = '#00ff00';
     if (status === 'info') dot.style.background = '#0077b5';
 }
 
-// ============================================================================
-// Initialization
-// ============================================================================
+function safeInit() {
+    try {
+        console.log('LCC v1.2.4 Nuclear Mode Starting...');
+        createDebugBadge();
 
-function init() {
-    console.log('LinkedIn Comment Copilot content script loaded v1.2.2');
-    createDebugBadge();
+        // Start Scanner
+        let attempts = 0;
+        const scan = () => {
+            attempts++;
+            try {
+                const posts = document.querySelectorAll(SELECTORS.feedPost);
 
-    // Add URL to Debug Logic
-    const currentUrl = window.location.href;
-    updateDebug('error', `v1.2.2 Scanning... (${currentUrl.slice(0, 30)}...)`);
+                if (posts.length > 0) {
+                    // Update UI only if state changes to avoid DOM thrashing
+                    if (!document.getElementById('lcc-debug-text').textContent.includes('Found')) {
+                        updateDebug('success', `Found ${posts.length} Posts`);
+                    }
 
-    // Polling function to keep trying
-    let attempts = 0;
-    const pollInterval = setInterval(() => {
-        attempts++;
-        const posts = document.querySelectorAll(SELECTORS.feedPost);
-
-        if (posts.length > 0) {
-            updateDebug('success', `Found ${posts.length} Posts!`);
-            setupPostTracking();
-            clearInterval(pollInterval);
-        } else {
-            // Check if we are at least on a page with a main container
-            const main = document.querySelector('main') || document.querySelector('.scaffold-layout__main');
-            if (main) {
-                updateDebug('warning', `Main Found, No Posts (${attempts})`);
-            } else {
-                updateDebug('error', `Scanning... (${attempts})`);
+                    // Inject loop
+                    posts.forEach(p => {
+                        if (!p.dataset.lccEnhanced) {
+                            injectButton(p);
+                        }
+                    });
+                } else {
+                    if (attempts % 5 === 0) {
+                        updateDebug('warning', `Scanning v1.2.4... (${attempts})`);
+                    }
+                }
+            } catch (scanErr) {
+                console.error(scanErr);
             }
-        }
 
-        // Stop polling after 30 seconds to save resources
-        if (attempts > 60) clearInterval(pollInterval);
-    }, 500);
+            // Keep scanning forever (SPA navigation support) - slower check (1s)
+            setTimeout(() => requestAnimationFrame(scan), 1000);
+        };
 
-    // Fallback: Mutation Observer (Keep this as a secondary check)
-    const observer = new MutationObserver((mutations) => {
-        if (document.querySelector(SELECTORS.feedPost)) {
-            // Only setup if we haven't already (check badge text or flag)
-            if (!document.getElementById('lcc-debug-text').textContent.includes('Found')) {
-                updateDebug('success', 'Observer Found Feed!');
-                setupPostTracking();
-                clearInterval(pollInterval);
-            }
-        }
-    });
+        // Kickoff
+        scan();
 
-    observer.observe(document.body, { childList: true, subtree: true });
+    } catch (e) {
+        console.error('LCC Fatal Init Error:', e);
+        createDebugBadge();
+        updateDebug('error', 'FATAL: ' + e.message);
+    }
 }
 
-// Run on page load
+// Robust Start
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', safeInit);
 } else {
-    init();
+    safeInit();
 }
 
 /**
