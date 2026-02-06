@@ -24,13 +24,15 @@ const CONFIG = {
 };
 
 // LinkedIn selectors (may need updates as LinkedIn changes their UI)
+// LinkedIn selectors (Updated for 2026 robustness)
+// LinkedIn selectors (Updated for 2026 robustness)
 const SELECTORS = {
-    feedPost: '[data-urn*="activity"]',
-    postContent: '.feed-shared-update-v2__description, .feed-shared-inline-show-more-text',
-    postAuthor: '.update-components-actor__name, .feed-shared-actor__name',
+    feedPost: '[data-urn*="activity"], .feed-shared-update-v2',
+    postContent: '.feed-shared-update-v2__description, .feed-shared-inline-show-more-text, .update-components-text',
+    postAuthor: '.update-components-actor__name, .feed-shared-actor__name, .update-components-actor__title',
     postAuthorHeadline: '.update-components-actor__description, .feed-shared-actor__description',
-    commentBox: '.comments-comment-box__form',
-    postContainer: '.feed-shared-update-v2'
+    commentBox: '.comments-comment-box__form, .comments-comment-box',
+    postContainer: '.feed-shared-update-v2, .occludable-update'
 };
 
 // ============================================================================
@@ -233,14 +235,18 @@ function createFloatingButton(postElement) {
 function injectButton(postElement) {
     if (postElement.dataset.lccEnhanced) return;
 
-    // Find Header to Inject Into
+    // Find Header to Inject Into (Try multiple newer selectors)
     const header = postElement.querySelector('.update-components-actor') ||
         postElement.querySelector('.feed-shared-actor') ||
-        postElement.querySelector('.update-components-header');
+        postElement.querySelector('.update-components-header') ||
+        postElement.querySelector('.feed-shared-actor__container') ||
+        postElement.querySelector('.update-components-actor__container') ||
+        postElement.querySelector('.feed-shared-control-menu'); // Fallback to menu area
 
-    if (!header) return;
-
-    if (!header) return;
+    if (!header) {
+        // console.warn('LCC: Could not find header for post', postElement);
+        return;
+    }
 
     // Pass postElement to createFloatingButton for local scoping
     const buttonContainer = createFloatingButton(postElement);
@@ -248,10 +254,12 @@ function injectButton(postElement) {
     // V2: Header Injection Styles - Permanent
     buttonContainer.style.position = 'relative';
     buttonContainer.style.marginLeft = 'auto'; // Push to right
+    buttonContainer.style.marginRight = '8px'; // Add some spacing
     buttonContainer.style.alignSelf = 'flex-start'; // Align top
     buttonContainer.style.marginTop = '4px';
     buttonContainer.style.opacity = '1'; // Visible immediately
     buttonContainer.style.transform = 'translateY(0)';
+    buttonContainer.style.zIndex = '2147483647'; // Max Z-Index
 
     // Ensure header is positioned for containment
     if (getComputedStyle(header).position === 'static') {
@@ -259,7 +267,13 @@ function injectButton(postElement) {
     }
     header.style.overflow = 'visible';
 
-    header.appendChild(buttonContainer);
+    // Insert before the control menu if possible (3 dots)
+    const menu = header.querySelector('.feed-shared-control-menu');
+    if (menu) {
+        header.insertBefore(buttonContainer, menu);
+    } else {
+        header.appendChild(buttonContainer);
+    }
 
     // Mark as enhanced
     postElement.dataset.lccEnhanced = 'true';
