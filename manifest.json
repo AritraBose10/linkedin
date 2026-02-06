@@ -5,8 +5,7 @@
   "description": "AI-powered LinkedIn comment suggestions that preserve your authentic voice",
   "permissions": [
     "storage",
-    "activeTab",
-    "offscreen"
+    "activeTab"
   ],
   "host_permissions": [
     "*://*.linkedin.com/*"

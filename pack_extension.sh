@@ -23,7 +23,9 @@ zip -r "$ZIP_NAME" . \
     -x "popup/input.css" \
     -x "package.json" \
     -x "package-lock.json" \
-    -x "node_modules/*"
+    -x "node_modules/*" \
+    -x "website/*" \
+    -x "server.js"
 
 echo "✅ Done! Created $ZIP_NAME"
 echo "   File size: $(du -h "$ZIP_NAME" | cut -f1)"

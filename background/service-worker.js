@@ -31,31 +31,7 @@ const DEFAULT_SETTINGS = {
 // Offscreen Document Helper
 // ============================================================================
 
-let creatingOffscreen;
-async function setupOffscreenDocument(path) {
-  // Check if offscreen document exists
-  const existingContexts = await chrome.runtime.getContexts({
-    contextTypes: ['OFFSCREEN_DOCUMENT'],
-    documentUrls: [chrome.runtime.getURL(path)]
-  });
-
-  if (existingContexts.length > 0) {
-    return;
-  }
-
-  // Create offscreen document
-  if (creatingOffscreen) {
-    await creatingOffscreen;
-  } else {
-    creatingOffscreen = chrome.offscreen.createDocument({
-      url: path,
-      reasons: ['WORKERS'], // Use WORKERS reason for background processing
-      justification: 'Run Gemini Nano AI model'
-    });
-    await creatingOffscreen;
-    creatingOffscreen = null;
-  }
-}
+// Offscreen helper removed (Feature deprecated)
 
 // ============================================================================
 // Storage Helpers
