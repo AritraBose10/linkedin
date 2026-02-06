@@ -1,0 +1,65 @@
+function extractPostData(postElement) {
+    let contentEl = postElement.querySelector(SELECTORS.postContent);
+
+    // Fallback 1: Look for any specific span with direction ltr (common for user text)
+    if (!contentEl) {
+        contentEl = postElement.querySelector('div.update-components-text span[dir="ltr"]');
+    }
+
+    // Fallback 2: "Smart Search" - Find the largest text block that isn't the author or footer
+    if (!contentEl) {
+        const candidates = Array.from(postElement.querySelectorAll('span, div[dir="ltr"]'));
+        let bestCandidate = null;
+        let maxLength = 0;
+
+        candidates.forEach(el => {
+            const text = el.innerText.trim();
+            // Filter out short UI texts, button labels, or huge blocks that are likely container wrappers
+            if (text.length > 20 && text.length < 3000 && !text.includes("Like\nComment")) {
+                if (text.length > maxLength) {
+                    maxLength = text.length;
+                    bestCandidate = el;
+                }
+            }
+        });
+        if (bestCandidate) contentEl = bestCandidate;
+    }
+
+    // [Method 3] The Nuclear Option (Low Precision but Guaranteed)
+    // If we still have nothing, grab the entire post text and strip known garbage
+    let finalContent = contentEl?.innerText?.trim() || '';
+
+    if (!finalContent) {
+        console.warn('LCC: Specific extraction failed. Using fallback full text scan.');
+        const rawText = postElement.innerText || '';
+        // Heuristic: Split by newlines, find the longest paragraph
+        const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 20);
+        // Sort by length descending
+        lines.sort((a, b) => b.length - a.length);
+
+        if (lines.length > 0) {
+            // The longest line that isn't likely a UI element
+            const likelyContent = lines.find(l => !l.includes("Like") && !l.includes("Comment"));
+            if (likelyContent) finalContent = likelyContent;
+        }
+    }
+
+    // DEBUGGING - If still empty, log the HTML to help the user help us
+    if (!finalContent) {
+        console.error('LCC: FATAL - Could not extract content. Post Element HTML:', postElement.innerHTML.slice(0, 500));
+    }
+
+    const authorEl = postElement.querySelector(SELECTORS.postAuthor);
+    const headlineEl = postElement.querySelector(SELECTORS.postAuthorHeadline);
+
+    return {
+        content: finalContent,
+        author: {
+            name: authorEl?.innerText?.trim() || 'Unknown',
+            headline: headlineEl?.innerText?.trim() || ''
+        },
+        urn: postElement.getAttribute('data-urn') || '',
+        hasMedia: !!postElement.querySelector('img, video'),
+        timestamp: Date.now()
+    };
+}
