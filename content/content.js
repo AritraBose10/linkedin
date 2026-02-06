@@ -824,35 +824,50 @@ function updateDebug(status, message) {
 // ============================================================================
 
 function init() {
-    console.log('LinkedIn Comment Copilot content script loaded');
+    console.log('LinkedIn Comment Copilot content script loaded v1.2.2');
     createDebugBadge();
-    updateDebug('error', 'Script Loaded (Waiting for Feed)');
 
-    // Wait for feed to load
-    const observer = new MutationObserver((mutations, obs) => {
-        const feed = document.querySelector(SELECTORS.feedPost);
-        if (feed) {
-            updateDebug('warning', 'Feed Detected');
-            // obs.disconnect(); // Don't disconnect, keep watching for re-renders
+    // Add URL to Debug Logic
+    const currentUrl = window.location.href;
+    updateDebug('error', `v1.2.2 Scanning... (${currentUrl.slice(0, 30)}...)`);
+
+    // Polling function to keep trying
+    let attempts = 0;
+    const pollInterval = setInterval(() => {
+        attempts++;
+        const posts = document.querySelectorAll(SELECTORS.feedPost);
+
+        if (posts.length > 0) {
+            updateDebug('success', `Found ${posts.length} Posts!`);
             setupPostTracking();
+            clearInterval(pollInterval);
+        } else {
+            // Check if we are at least on a page with a main container
+            const main = document.querySelector('main') || document.querySelector('.scaffold-layout__main');
+            if (main) {
+                updateDebug('warning', `Main Found, No Posts (${attempts})`);
+            } else {
+                updateDebug('error', `Scanning... (${attempts})`);
+            }
+        }
+
+        // Stop polling after 30 seconds to save resources
+        if (attempts > 60) clearInterval(pollInterval);
+    }, 500);
+
+    // Fallback: Mutation Observer (Keep this as a secondary check)
+    const observer = new MutationObserver((mutations) => {
+        if (document.querySelector(SELECTORS.feedPost)) {
+            // Only setup if we haven't already (check badge text or flag)
+            if (!document.getElementById('lcc-debug-text').textContent.includes('Found')) {
+                updateDebug('success', 'Observer Found Feed!');
+                setupPostTracking();
+                clearInterval(pollInterval);
+            }
         }
     });
 
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-
-    // Also try immediately in case feed is already loaded
-    if (document.querySelector(SELECTORS.feedPost)) {
-        updateDebug('warning', 'Feed Detected (Immediate)');
-        setupPostTracking();
-    } else {
-        // Fallback: Check for ANY linkedin body content to confirm mismatch vs not loading
-        if (document.querySelector('#global-nav')) {
-            updateDebug('error', 'Nav Found, No Feed Yet');
-        }
-    }
+    observer.observe(document.body, { childList: true, subtree: true });
 }
 
 // Run on page load
