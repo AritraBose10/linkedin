@@ -2,159 +2,36 @@
 <html lang="en">
 
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LinkedIn Comment Copilot - Options</title>
+  <meta charset="utf-8" />
+  <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+  <title>Comment Copilot - Settings</title>
+  <link href="../popup/dist.css" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&amp;display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet" />
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: linear-gradient(135deg, #f5f7fa 0%, #e4e9f0 100%);
-      min-height: 100vh;
-      padding: 40px 20px;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
+    input[type=range] {
+      -webkit-appearance: none;
+      background: transparent;
     }
 
-    .header {
-      text-align: center;
-      margin-bottom: 32px;
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
     }
 
-    .header h1 {
-      font-size: 28px;
-      color: #0077b5;
-      margin-bottom: 8px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-    }
-
-    .header p {
-      color: #6c757d;
-      font-size: 14px;
-    }
-
-    .card {
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-      padding: 28px;
-      margin-bottom: 20px;
-    }
-
-    .card h2 {
-      font-size: 16px;
-      color: #212529;
-      margin-bottom: 20px;
-      padding-bottom: 12px;
-      border-bottom: 1px solid #e9ecef;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-group:last-child {
-      margin-bottom: 0;
-    }
-
-    label {
-      display: block;
-      font-size: 13px;
-      font-weight: 600;
-      color: #495057;
-      margin-bottom: 8px;
-    }
-
-    input,
-    select {
-      width: 100%;
-      padding: 12px 16px;
-      font-size: 14px;
-      border: 1px solid #dee2e6;
-      border-radius: 10px;
-      background: #f8f9fa;
-      transition: all 0.2s ease;
-    }
-
-    input:focus,
-    select:focus {
+    input[type=range]:focus {
       outline: none;
-      border-color: #0077b5;
-      background: white;
-      box-shadow: 0 0 0 3px rgba(0, 119, 181, 0.1);
     }
 
-    input[type="password"] {
-      font-family: monospace;
-      letter-spacing: 1px;
+    .hidden {
+      display: none !important;
     }
 
-    .input-hint {
-      display: block;
-      margin-top: 6px;
-      font-size: 12px;
-      color: #868e96;
-    }
-
-    .range-wrap {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .range-value {
-      font-size: 14px;
-      font-weight: 600;
-      color: #0077b5;
-      width: 30px;
-    }
-
-    .actions {
-      display: flex;
-      gap: 12px;
-      margin-top: 30px;
-    }
-
-    .btn {
-      flex: 1;
-      padding: 14px;
-      border: none;
-      border-radius: 12px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: transform 0.1s, box-shadow 0.2s;
-    }
-
-    .btn:active {
-      transform: scale(0.98);
-    }
-
-    .btn-primary {
-      background: #0077b5;
-      color: white;
-      box-shadow: 0 4px 12px rgba(0, 119, 181, 0.2);
-    }
-
-    .btn-secondary {
-      background: #e9ecef;
-      color: #495057;
-    }
-
+    /* Toast Styles from original */
     .toast {
       position: fixed;
       bottom: 20px;
@@ -182,151 +59,199 @@
     .toast.error {
       background: #dc3545;
     }
-
-    .hidden {
-      display: none !important;
-    }
-    
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-    }
-  
-    .stat {
-      background: #f8f9fa;
-      padding: 12px;
-      border-radius: 12px;
-      text-align: center;
-    }
-  
-    .stat-value {
-      font-size: 18px;
-      font-weight: 700;
-      color: #0077b5;
-    }
-  
-    .stat-label {
-      font-size: 11px;
-      color: #6c757d;
-      margin-top: 4px;
-    }
   </style>
 </head>
 
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>
-        <span>💬</span> LinkedIn Comment Copilot
-      </h1>
-      <p>Configure your AI assistant settings</p>
+<body
+  class="bg-background-light dark:bg-background-dark font-sans text-gray-800 dark:text-gray-200 min-h-screen flex flex-col justify-between transition-colors duration-300">
+  <header
+    class="bg-gradient-to-b from-[#006097] to-[#004b7c] pt-12 pb-12 px-6 rounded-b-[2rem] shadow-lg relative z-10">
+    <div class="flex flex-col items-center justify-center text-white">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="material-icons-round text-2xl opacity-90">tune</span>
+        <h1 class="text-xl font-bold tracking-tight">Settings</h1>
+      </div>
+      <p class="text-sm font-medium text-blue-100 opacity-80">Configure your AI assistant</p>
     </div>
-
-    <div class="card">
-      <h2>🤖 AI Provider</h2>
-      <div class="form-group">
-        <label for="provider">LLM Provider</label>
-        <select id="provider">
-          <option value="openai">OpenAI</option>
-          <option value="gemini">Google Gemini</option>
-          <option value="anthropic">Anthropic Claude</option>
-          <option value="groq">Groq (Llama 3)</option>
-          <option value="nano">Google Gemini Nano (Local)</option>
-          <option value="puter">Puter.js (Free)</option>
-        </select>
+  </header>
+  <main class="flex-grow px-5 -mt-8 relative z-20 w-full max-w-md mx-auto pb-10 space-y-5">
+    <section
+      class="bg-card-light dark:bg-card-dark rounded-2xl shadow-soft p-5 border border-gray-100 dark:border-gray-700 backdrop-blur-sm">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="material-icons-round text-primary text-xl">smart_toy</span>
+        <h2 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">AI Provider</h2>
       </div>
-
-      <div class="form-group" id="apiKeyGroup">
-        <label for="apiKey">API Key</label>
-        <input type="password" id="apiKey" placeholder="sk-...">
-        <span class="input-hint">Your key is stored locally in your browser.</span>
-      </div>
-
-      <div class="form-group">
-        <label for="model">Model</label>
-        <select id="model">
-          <!-- Populated by JS -->
-        </select>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2>⚙️ Generation Settings</h2>
-      <div class="form-group">
-        <label for="temperature">Creativity (Temperature)</label>
-        <div class="range-wrap">
-          <input type="range" id="temperature" min="0" max="1" step="0.1" value="0.8">
-          <span class="range-value" id="tempValue">0.8</span>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1" for="provider">LLM
+            Provider</label>
+          <select id="provider"
+            class="w-full bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-primary focus:border-primary py-2.5 px-3 text-gray-700 dark:text-gray-200">
+            <option value="openai">OpenAI (GPT-4)</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="anthropic">Anthropic Claude</option>
+            <option value="groq">Groq (Llama 3)</option>
+            <option value="nano">Google Gemini Nano (Local)</option>
+            <option value="puter">Puter.js (Free)</option>
+          </select>
         </div>
-        <span class="input-hint">Higher values make comments more creative but less predictable.</span>
-      </div>
-
-      <div class="form-group">
-        <label for="maxTokens">Max Length (Tokens)</label>
-        <select id="maxTokens">
-          <option value="50">Short (~10 words)</option>
-          <option value="100">Medium (~25 words)</option>
-          <option value="150">Long (~40 words)</option>
-          <option value="300">Detailed (~80 words)</option>
-        </select>
-      </div>
-    </div>
-    
-    <div class="card" id="styleCard">
-      <h2>🗣️ Clone Your Voice</h2>
-      <div class="form-group">
-        <label for="trainingData">Paste your recent comments/posts to learn style:</label>
-        <textarea id="trainingData" rows="4" style="width:100%; padding:10px; border-radius:10px; border:1px solid #dee2e6; font-size:13px;" placeholder="Example: Great insights here! I love how you framed the problem.\n\nThanks for sharing this perspective.\n\nInteresting take, but have you considered X?"></textarea>
-      </div>
-
-      <div id="styleStats"
-        style="display: none; margin: 16px 0; padding: 16px; background: #e8f4f9; border-radius: 8px; border: 1px solid #cce5f0;">
-        <h3 style="margin: 0 0 10px 0; font-size: 12px; text-transform: uppercase; color: #0077b5;">Detected DNA</h3>
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
-          <div>📝 Length: <strong id="styleLength">-</strong></div>
-          <div>😊 Emojis: <strong id="styleEmoji">-</strong></div>
-          <div>🎭 Tone: <strong id="styleTone">-</strong></div>
-          <div>🔤 Casing: <strong id="styleCasing">-</strong></div>
+        <div id="apiKeyGroup">
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1" for="apiKey">API
+            Key</label>
+          <input id="apiKey"
+            class="w-full bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-primary focus:border-primary py-2.5 px-3 text-gray-700 dark:text-gray-200 font-mono tracking-widest placeholder-gray-400"
+            placeholder="sk-..." type="password" />
+          <p class="text-[10px] text-gray-400 mt-1.5 ml-1">Your key is stored locally in your browser.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1"
+            for="model">Model</label>
+          <select id="model"
+            class="w-full bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-primary focus:border-primary py-2.5 px-3 text-gray-700 dark:text-gray-200">
+            <!-- Populated by JS -->
+          </select>
         </div>
       </div>
-
-      <button id="trainBtn" class="btn btn-secondary"
-        style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
-        <span>🧬</span> Analyze & Save Identity
+    </section>
+    <section
+      class="bg-card-light dark:bg-card-dark rounded-2xl shadow-soft p-5 border border-gray-100 dark:border-gray-700 backdrop-blur-sm">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="material-icons-round text-primary text-xl">tune</span>
+        <h2 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Generation Settings</h2>
+      </div>
+      <div class="space-y-5">
+        <div>
+          <div class="flex justify-between items-center mb-2 ml-1">
+            <label class="text-xs font-semibold text-gray-500 dark:text-gray-400" for="temperature">Creativity
+              (Temperature)</label>
+            <span id="tempValue"
+              class="text-xs font-mono font-bold text-primary bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded">0.8</span>
+          </div>
+          <input id="temperature"
+            class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary" max="1" min="0"
+            step="0.1" type="range" value="0.8" />
+          <p class="text-[10px] text-gray-400 mt-1.5 ml-1 leading-tight">Higher values make comments more creative but
+            less predictable.</p>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1" for="maxTokens">Max
+            Length (Tokens)</label>
+          <select id="maxTokens"
+            class="w-full bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 rounded-xl text-sm focus:ring-primary focus:border-primary py-2.5 px-3 text-gray-700 dark:text-gray-200">
+            <option value="50">Short (~15 words)</option>
+            <option value="100">Medium (~25 words)</option>
+            <option value="150">Long (~50 words)</option>
+            <option value="300">Detailed (~80 words)</option>
+          </select>
+        </div>
+      </div>
+    </section>
+    <section
+      class="bg-card-light dark:bg-card-dark rounded-2xl shadow-soft p-5 border border-gray-100 dark:border-gray-700 backdrop-blur-sm">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="material-icons-round text-primary text-xl">record_voice_over</span>
+        <h2 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Clone Your Voice</h2>
+      </div>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 ml-1"
+            for="trainingData">Paste your recent comments to learn style:</label>
+          <textarea id="trainingData"
+            class="w-full bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-600 rounded-xl text-xs focus:ring-primary focus:border-primary py-3 px-3 text-gray-600 dark:text-gray-300 placeholder-gray-400 resize-none leading-relaxed"
+            placeholder="Example: Great insights here! I love how you framed the problem.
+Thanks for sharing this perspective.
+Interesting take, but have you considered X?" rows="4"></textarea>
+        </div>
+        <div id="styleStats"
+          class="hidden bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/30 rounded-xl p-4">
+          <div class="flex items-center gap-1.5 mb-3">
+            <span class="material-icons-round text-primary text-sm">science</span>
+            <span class="text-[10px] font-bold text-primary uppercase tracking-widest">Detected DNA</span>
+          </div>
+          <div class="grid grid-cols-2 gap-y-3 gap-x-2">
+            <div class="flex items-center gap-2">
+              <span class="material-icons-round text-blue-400 text-lg">short_text</span>
+              <div class="flex flex-col">
+                <span class="text-[9px] text-gray-400 font-semibold uppercase">Length</span>
+                <span id="styleLength"
+                  class="text-[11px] text-gray-800 dark:text-gray-200 font-medium leading-tight">-</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-icons-round text-blue-400 text-lg">psychology</span>
+              <div class="flex flex-col">
+                <span class="text-[9px] text-gray-400 font-semibold uppercase">Tone</span>
+                <span id="styleTone"
+                  class="text-[11px] text-gray-800 dark:text-gray-200 font-medium leading-tight">-</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-icons-round text-blue-400 text-lg">sentiment_satisfied</span>
+              <div class="flex flex-col">
+                <span class="text-[9px] text-gray-400 font-semibold uppercase">Emojis</span>
+                <span id="styleEmoji"
+                  class="text-[11px] text-gray-800 dark:text-gray-200 font-medium leading-tight">-</span>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="material-icons-round text-blue-400 text-lg">text_fields</span>
+              <div class="flex flex-col">
+                <span class="text-[9px] text-gray-400 font-semibold uppercase">Casing</span>
+                <span id="styleCasing"
+                  class="text-[11px] text-gray-800 dark:text-gray-200 font-medium leading-tight">-</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button id="trainBtn"
+          class="w-full bg-blue-50 dark:bg-gray-800 hover:bg-blue-100 dark:hover:bg-gray-700 text-primary dark:text-blue-300 font-semibold py-2.5 rounded-xl border border-blue-100 dark:border-gray-600 text-sm transition-colors flex items-center justify-center gap-2">
+          <span class="material-icons-round text-lg">auto_fix_high</span>
+          Analyze &amp; Save Identity
+        </button>
+      </div>
+    </section>
+    <section
+      class="bg-card-light dark:bg-card-dark rounded-2xl shadow-soft p-5 border border-gray-100 dark:border-gray-700 backdrop-blur-sm">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="material-icons-round text-primary text-xl">bar_chart</span>
+        <h2 class="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wider">Usage Statistics</h2>
+      </div>
+      <div class="grid grid-cols-3 divide-x divide-gray-100 dark:divide-gray-700">
+        <div class="flex flex-col items-center text-center px-2">
+          <span id="totalGenerated" class="text-xl font-bold text-gray-900 dark:text-white font-display mb-1">0</span>
+          <span class="text-[10px] text-gray-500 font-medium leading-tight">Comments Generated</span>
+        </div>
+        <div class="flex flex-col items-center text-center px-2">
+          <span id="todayRemaining" class="text-xl font-bold text-gray-900 dark:text-white font-display mb-1">-</span>
+          <span class="text-[10px] text-gray-500 font-medium leading-tight">Remaining Today</span>
+        </div>
+        <div class="flex flex-col items-center text-center px-2">
+          <span id="avgRating" class="text-xl font-bold text-gray-300 dark:text-gray-600 font-display mb-1">-</span>
+          <span class="text-[10px] text-gray-500 font-medium leading-tight">Avg Quality</span>
+        </div>
+      </div>
+    </section>
+    <div class="pt-2 space-y-4 text-center">
+      <button id="saveBtn"
+        class="w-full group bg-primary hover:bg-[#005c8e] text-white font-semibold py-4 px-6 rounded-xl shadow-lg hover:shadow-glow transform transition-all duration-200 active:scale-[0.98] flex items-center justify-center gap-2">
+        <span class="material-icons-round">save</span>
+        <span>Save Settings</span>
       </button>
-    </div>
-
-    <div class="card">
-      <h2>📊 Usage Statistics</h2>
-      <div class="stats">
-        <div class="stat">
-          <div class="stat-value" id="totalGenerated">0</div>
-          <div class="stat-label">Comments Generated</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value" id="todayRemaining">10</div>
-          <div class="stat-label">Remaining Today</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value" id="avgRating">-</div>
-          <div class="stat-label">Avg Quality</div>
-        </div>
-      </div>
-    </div>
-
-    <div class="actions">
-      <button class="btn btn-primary" id="saveBtn">
-        <span>💾</span> Save Settings
-      </button>
-      <button class="btn btn-secondary" id="resetBtn">
+      <a id="resetBtn"
+        class="inline-block text-xs font-medium text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors cursor-pointer">
         Reset to Defaults
-      </button>
+      </a>
     </div>
-  </div>
-
-  <div class="toast" id="toast"></div>
-
+  </main>
+  <footer class="pb-8 pt-4 text-center px-6">
+    <div class="flex flex-col items-center justify-center gap-2">
+      <p class="text-[10px] text-gray-300 dark:text-gray-600 font-medium tracking-wide">
+        v1.1.0 • <a class="hover:text-primary transition-colors underline decoration-dotted underline-offset-2"
+          href="#">View on GitHub</a>
+      </p>
+    </div>
+  </footer>
+  <div id="toast" class="toast"></div>
   <script src="../core/style-engine.js"></script>
   <script src="options.js"></script>
 </body>
