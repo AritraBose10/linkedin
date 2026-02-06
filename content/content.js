@@ -278,6 +278,9 @@ function injectButton(postElement) {
     // Mark as enhanced
     postElement.dataset.lccEnhanced = 'true';
 
+    // Update Debug Badge
+    updateDebug('success', 'Buttons Injected!');
+
     // Click handler for main button
     buttonContainer.querySelector('.lcc-suggest-btn').addEventListener('click', (e) => {
         e.stopPropagation();
@@ -773,19 +776,64 @@ function delay(ms) {
 }
 
 // ============================================================================
+// Debug Badge (For User Feedback)
+// ============================================================================
+
+function createDebugBadge() {
+    const badge = document.createElement('div');
+    badge.id = 'lcc-debug-badge';
+    badge.style.cssText = `
+        position: fixed;
+        bottom: 20px;
+        left: 20px; // Left side to avoid chat windows
+        padding: 8px 12px;
+        background: #333;
+        color: white;
+        border-radius: 20px;
+        font-family: monospace;
+        font-size: 12px;
+        z-index: 2147483647;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        pointer-events: none;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    `;
+    badge.innerHTML = `
+        <span style="width: 10px; height: 10px; background: red; border-radius: 50%; display: inline-block;" id="lcc-debug-dot"></span>
+        <span id="lcc-debug-text">LCC: Loading...</span>
+    `;
+    document.body.appendChild(badge);
+}
+
+function updateDebug(status, message) {
+    const dot = document.getElementById('lcc-debug-dot');
+    const text = document.getElementById('lcc-debug-text');
+    if (!dot || !text) return;
+
+    text.textContent = `LCC: ${message}`;
+    if (status === 'error') dot.style.background = 'red';
+    if (status === 'warning') dot.style.background = 'orange';
+    if (status === 'success') dot.style.background = '#00ff00';
+    if (status === 'info') dot.style.background = '#0077b5';
+}
+
+// ============================================================================
 // Initialization
 // ============================================================================
 
 function init() {
     console.log('LinkedIn Comment Copilot content script loaded');
+    createDebugBadge();
+    updateDebug('error', 'Script Loaded (Waiting for Feed)');
 
     // Wait for feed to load
     const observer = new MutationObserver((mutations, obs) => {
         const feed = document.querySelector(SELECTORS.feedPost);
         if (feed) {
-            obs.disconnect();
+            updateDebug('warning', 'Feed Detected');
+            // obs.disconnect(); // Don't disconnect, keep watching for re-renders
             setupPostTracking();
-            console.log('LinkedIn Comment Copilot: Ready');
         }
     });
 
@@ -796,7 +844,13 @@ function init() {
 
     // Also try immediately in case feed is already loaded
     if (document.querySelector(SELECTORS.feedPost)) {
+        updateDebug('warning', 'Feed Detected (Immediate)');
         setupPostTracking();
+    } else {
+        // Fallback: Check for ANY linkedin body content to confirm mismatch vs not loading
+        if (document.querySelector('#global-nav')) {
+            updateDebug('error', 'Nav Found, No Feed Yet');
+        }
     }
 }
 
