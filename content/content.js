@@ -25,15 +25,15 @@ const CONFIG = {
 
 // LinkedIn selectors (may need updates as LinkedIn changes their UI)
 // LinkedIn selectors (Updated for 2026 robustness)
-// LinkedIn selectors (Updated for 2026 robustness - NUCLEAR MODE)
+// LinkedIn selectors (V2 - Validated & Precise)
 const SELECTORS = {
-    // Try everything that looks like a container
-    feedPost: '[data-urn], .artdeco-card, .feed-shared-update-v2', // Nuclear: Catch any card
+    // Only match actual feed posts (not nav/sidebar cards)
+    feedPost: '[data-urn*="urn:li:activity"], [data-urn*="urn:li:ugcPost"], .feed-shared-update-v2[data-urn]',
     postContent: '.feed-shared-update-v2__description, .feed-shared-inline-show-more-text, .update-components-text, span.break-words',
     postAuthor: '.update-components-actor__name, .feed-shared-actor__name, .update-components-actor__title, a.app-aware-link > span > span:first-child',
     postAuthorHeadline: '.update-components-actor__description, .feed-shared-actor__description',
     commentBox: '.comments-comment-box__form, .comments-comment-box, form',
-    postContainer: '.feed-shared-update-v2, .occludable-update, div[data-id], .artdeco-card'
+    postContainer: '.feed-shared-update-v2, .occludable-update'
 };
 
 // ============================================================================
@@ -108,6 +108,55 @@ function extractPostData(postElement) {
         hasMedia: !!postElement.querySelector('img, video'),
         timestamp: Date.now()
     };
+}
+
+// ============================================================================
+// Post Validation (V2)
+// ============================================================================
+
+/**
+ * Validates that an element is an actual LinkedIn post, not a sidebar/nav card
+ * @param {HTMLElement} element - Element to validate
+ * @returns {boolean} - True if valid post, false otherwise
+ */
+function isValidLinkedInPost(element) {
+    if (!element) return false;
+
+    // Must have a URN (LinkedIn post ID)
+    const urn = element.getAttribute('data-urn');
+    if (!urn) return false;
+
+    // URN must be for activity/post (not profile, company, etc.)
+    const isPostUrn = urn.includes('urn:li:activity') ||
+        urn.includes('urn:li:ugcPost') ||
+        urn.includes('urn:li:share');
+    if (!isPostUrn) return false;
+
+    // Must have post content (actual text/media)
+    const hasContent = element.querySelector(SELECTORS.postContent);
+    if (!hasContent) return false;
+
+    // Must have author info
+    const hasAuthor = element.querySelector(SELECTORS.postAuthor);
+    if (!hasAuthor) return false;
+
+    // Exclude elements in modals (detail view, not feed)
+    const isInModal = element.closest('.artdeco-modal');
+    if (isInModal) return false;
+
+    // Exclude navigation elements
+    const isInNav = element.closest('nav');
+    if (isInNav) return false;
+
+    // Exclude sidebar elements
+    const isInSidebar = element.closest('aside') || element.closest('.scaffold-layout__aside');
+    if (isInSidebar) return false;
+
+    // Exclude header/footer
+    const isInHeader = element.closest('header');
+    if (isInHeader) return false;
+
+    return true;
 }
 
 // ============================================================================
@@ -188,7 +237,11 @@ function createFloatingButton(postElement) {
 
         // Lazy analyze post
         const postData = extractPostData(postElement);
-        const vibes = vibeEngine ? vibeEngine.analyze(postData.content) : [];
+
+        // V2: Safe fallback if VibeEngine missing
+        const vibes = vibeEngine
+            ? vibeEngine.analyze(postData.content)
+            : [{ icon: '💬', label: 'Comment', prompt: 'professional' }]; // Default vibe
 
         // Render Vibe Buttons
         vibeContainer.innerHTML = '';
@@ -233,8 +286,15 @@ function createFloatingButton(postElement) {
 }
 
 // Renamed for clarity: Injects permanent button
+// V2: Now returns true/false for success tracking
 function injectButton(postElement) {
-    if (postElement.dataset.lccEnhanced) return;
+    if (postElement.dataset.lccEnhanced) return false;
+
+    // V2: Validate post first
+    if (!isValidLinkedInPost(postElement)) {
+        console.warn('[LCC V2] Invalid post element (not a real post):', postElement);
+        return false;
+    }
 
     // Find Header to Inject Into (Try multiple newer selectors)
     const header = postElement.querySelector('.update-components-actor') ||
@@ -245,8 +305,8 @@ function injectButton(postElement) {
         postElement.querySelector('.feed-shared-control-menu'); // Fallback to menu area
 
     if (!header) {
-        // console.warn('LCC: Could not find header for post', postElement);
-        return;
+        console.warn('[LCC V2] Could not find header for post', postElement);
+        return false;
     }
 
     // Pass postElement to createFloatingButton for local scoping
@@ -279,14 +339,14 @@ function injectButton(postElement) {
     // Mark as enhanced
     postElement.dataset.lccEnhanced = 'true';
 
-    // Update Debug Badge
-    updateDebug('success', 'Buttons Injected!');
-
     // Click handler for main button
     buttonContainer.querySelector('.lcc-suggest-btn').addEventListener('click', (e) => {
         e.stopPropagation();
         showSuggestionPanel(postElement);
     });
+
+    // V2: Return success
+    return true;
 }
 
 function hideButton() {
@@ -781,7 +841,7 @@ function delay(ms) {
 // ============================================================================
 
 // ============================================================================
-// Debug Badge & Safe Initialization (v1.2.4 Nuclear)
+// Debug Badge & Safe Initialization (V2)
 // ============================================================================
 
 function createDebugBadge() {
@@ -808,33 +868,44 @@ function createDebugBadge() {
     `;
     badge.innerHTML = `
         <div style="display:flex; align-items:center; gap:8px;">
-            <span style="width: 10px; height: 10px; background: red; border-radius: 50%;" id="lcc-debug-dot"></span>
-            <span id="lcc-debug-text">Loaded v1.2.4</span>
+            <span style="width: 10px; height: 10px; background: #0077b5; border-radius: 50%;" id="lcc-debug-dot"></span>
+            <span id="lcc-debug-text">LCC V2 Loading...</span>
         </div>
         <button id="lcc-force-btn" style="
-            background: #d9534f; border: 1px solid #d43f3a; color: white; 
+            background: #0077b5; border: 1px solid #005885; color: white; 
             padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 10px; font-weight: bold;
         ">FORCE INJECT</button>
     `;
     document.body.appendChild(badge);
 
-    // Manual Trigger
+    // V2: Manual Trigger with Accurate Reporting
     document.getElementById('lcc-force-btn').addEventListener('click', () => {
-        updateDebug('info', 'Forcing Injection...');
+        updateDebug('info', 'Force Injecting...');
 
-        // Use Nuclear Selector for force inject
-        const nuclearPosts = document.querySelectorAll('.artdeco-card, [data-urn], .feed-shared-update-v2');
+        // Use broad selector for force inject (user override)
+        const candidates = document.querySelectorAll('[data-urn], .feed-shared-update-v2, .artdeco-card');
 
-        if (nuclearPosts.length === 0) {
-            alert('LCC: Complete failure. No cards found at all.');
+        let successful = 0;
+        let failed = 0;
+
+        candidates.forEach(element => {
+            const result = injectButton(element);
+            if (result) {
+                successful++;
+            } else {
+                failed++;
+            }
+        });
+
+        const total = candidates.length;
+        const message = `✅ ${successful} injected\n❌ ${failed} failed\n📊 ${total} total elements`;
+
+        alert(`LCC V2 Force Inject Results:\n\n${message}`);
+
+        if (successful > 0) {
+            updateDebug('success', `Force: ${successful} buttons`);
         } else {
-            let count = 0;
-            nuclearPosts.forEach(p => {
-                injectButton(p);
-                count++;
-            });
-            alert(`LCC: Force injected into ${count} elements.`);
-            updateDebug('success', `Forced: ${count} Elements`);
+            updateDebug('error', `Force failed: 0/${total}`);
         }
     });
 }
@@ -854,38 +925,71 @@ function updateDebug(status, message) {
 
 function safeInit() {
     try {
-        console.log('LCC v1.2.4 Nuclear Mode Starting...');
+        console.log('[LCC V2.0.0] Starting initialization...');
         createDebugBadge();
 
-        // Start Scanner
+        // V2: Wait for LinkedIn feed to render
+        let feedReady = false;
         let attempts = 0;
+
         const scan = () => {
             attempts++;
+
             try {
+                // First check: Is the feed container even loaded?
+                const feedContainer = document.querySelector('main.scaffold-layout__main') ||
+                    document.querySelector('main');
+
+                if (!feedContainer && attempts < 20) {
+                    // Still loading, keep waiting
+                    if (attempts % 5 === 0) {
+                        updateDebug('warning', `Waiting for feed... (${attempts})`);
+                    }
+                    setTimeout(() => requestAnimationFrame(scan), 500);
+                    return;
+                }
+
+                // Second check: Find actual posts
                 const posts = document.querySelectorAll(SELECTORS.feedPost);
 
                 if (posts.length > 0) {
-                    // Update UI only if state changes to avoid DOM thrashing
-                    if (!document.getElementById('lcc-debug-text').textContent.includes('Found')) {
-                        updateDebug('success', `Found ${posts.length} Posts`);
-                    }
+                    // V2: Track successful injections, not just attempts
+                    let successCount = 0;
+                    let failCount = 0;
 
-                    // Inject loop
-                    posts.forEach(p => {
-                        if (!p.dataset.lccEnhanced) {
-                            injectButton(p);
+                    posts.forEach(post => {
+                        if (!post.dataset.lccEnhanced) {
+                            const injected = injectButton(post);
+                            if (injected) {
+                                successCount++;
+                            } else {
+                                failCount++;
+                            }
                         }
                     });
+
+                    // Update badge with accurate info
+                    if (successCount > 0) {
+                        if (!feedReady) {
+                            feedReady = true;
+                            console.log(`[LCC V2] Successfully injected ${successCount} buttons`);
+                        }
+                        updateDebug('success', `✅ ${successCount} active`);
+                    } else if (failCount > 0) {
+                        updateDebug('error', `Found ${posts.length} but 0 valid`);
+                    }
                 } else {
-                    if (attempts % 5 === 0) {
-                        updateDebug('warning', `Scanning v1.2.4... (${attempts})`);
+                    // No posts found yet
+                    if (attempts % 10 === 0) {
+                        updateDebug('warning', `Scanning V2... (${attempts})`);
                     }
                 }
             } catch (scanErr) {
-                console.error(scanErr);
+                console.error('[LCC V2] Scan error:', scanErr);
+                updateDebug('error', 'Scan error: ' + scanErr.message);
             }
 
-            // Keep scanning forever (SPA navigation support) - slower check (1s)
+            // Keep scanning for SPA navigation (slower interval)
             setTimeout(() => requestAnimationFrame(scan), 1000);
         };
 
@@ -893,7 +997,7 @@ function safeInit() {
         scan();
 
     } catch (e) {
-        console.error('LCC Fatal Init Error:', e);
+        console.error('[LCC V2] Fatal init error:', e);
         createDebugBadge();
         updateDebug('error', 'FATAL: ' + e.message);
     }
