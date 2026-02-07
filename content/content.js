@@ -802,31 +802,7 @@ async function handleInsert(postElement) {
 // ============================================================================
 // Hover & Dwell Time Tracking
 // ============================================================================
-
-function setupPostTracking() {
-    // 1. Initial Scan
-    const existingPosts = document.querySelectorAll(SELECTORS.feedPost);
-    existingPosts.forEach(injectButton);
-
-    // 2. Observe for new posts (Infinite Scroll)
-    const observer = new MutationObserver((mutations) => {
-        mutations.forEach((mutation) => {
-            mutation.addedNodes.forEach((node) => {
-                if (node.nodeType === 1) { // Element node
-                    // Check if node itself is a post
-                    if (node.matches && node.matches(SELECTORS.feedPost)) {
-                        injectButton(node);
-                    }
-                    // Check children
-                    const posts = node.querySelectorAll ? node.querySelectorAll(SELECTORS.feedPost) : [];
-                    posts.forEach(injectButton);
-                }
-            });
-        });
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-}
+// V2: setupPostTracking() removed - unused dead code
 
 // ============================================================================
 // Utilities
@@ -936,6 +912,17 @@ function safeInit() {
             attempts++;
 
             try {
+                // V2.1: Stop scanning if not on feed page (prevent memory leak)
+                const isFeedPage = window.location.pathname === '/feed' ||
+                    window.location.pathname === '/feed/' ||
+                    window.location.pathname === '/';
+
+                if (!isFeedPage) {
+                    console.log('[LCC V2] Left feed page, stopping scanner');
+                    updateDebug('info', 'Not on feed');
+                    return; // Stop the infinite loop
+                }
+
                 // First check: Is the feed container even loaded?
                 const feedContainer = document.querySelector('main.scaffold-layout__main') ||
                     document.querySelector('main');
