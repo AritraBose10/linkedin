@@ -1080,3 +1080,21 @@ function typewriterEffect(element, text) {
         type();
     });
 }
+
+// ============================================================================
+// Cleanup on Page Unload (V2.0.2)
+// ============================================================================
+
+window.addEventListener('beforeunload', () => {
+    // Cancel scanner timeout
+    if (state.scannerTimeout) {
+        clearTimeout(state.scannerTimeout);
+        state.scannerTimeout = null;
+    }
+
+    // Cancel all typing timeouts
+    state.typingTimeouts.forEach(id => clearTimeout(id));
+    state.typingTimeouts = [];
+
+    console.log('[LCC V2.0.2] Cleaned up timeouts on page unload');
+});
